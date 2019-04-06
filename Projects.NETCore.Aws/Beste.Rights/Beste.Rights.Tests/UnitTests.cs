@@ -1,25 +1,30 @@
+using Amazon.DynamoDBv2;
+using Amazon.DynamoDBv2.Model;
+using Beste.Aws.Databases.Connector;
 using Beste.Databases.Connector;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using NHibernate;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Threading.Tasks;
 
 namespace Beste.Rights.Tests
 {
     [TestClass]
     public class UnitTests
     {
-        readonly Assembly[] Assemblies =
+        public static int TABLE_ID = 1;
+
+        [ClassInitialize]
+        public static async Task TestInitialize(TestContext testContext)
         {
-                Assembly.GetAssembly(typeof(BesteRightsDefinition))
-        };
+            await AddInitialRightsToDatabase();
+        }
 
         [TestMethod]
         public void InstanciateRightControl()
         {
-            ActivateTestSchema();
             RightControl rightControl = new RightControl("InstanciateRightControl");
         }
 
@@ -39,13 +44,11 @@ namespace Beste.Rights.Tests
         }
 
         [TestMethod]
-        public void CheckRegisterGivenAuthorizationsDataBaseOnly()
+        public async Task CheckRegisterGivenAuthorizationsDataBaseOnly()
         {
-            ActivateTestSchema();
-            AddInitialRightsToDatabase();
 
             RightControl rightControl = new RightControl("CheckRegister");
-            string token = rightControl.Register(1);
+            string token = await rightControl.Register(1);
             if (!rightControl.IsGranted(token, "Add", "Authorizations"))
             {
                 Assert.Fail();
@@ -61,17 +64,15 @@ namespace Beste.Rights.Tests
 
         }
         [TestMethod]
-        public void CheckRegisterGivenAuthorizationsWithAdditionalAutorization()
+        public async Task CheckRegisterGivenAuthorizationsWithAdditionalAutorization()
         {
-            ActivateTestSchema(false);
-            AddInitialRightsToDatabase();
 
             RightControl rightControl = new RightControl("CheckRegister");
             PureRight pureRight = new PureRight();
             pureRight.Authorized = true;
             pureRight.Operation = "Edit";
             pureRight.RecourceModule = "Authorizations";
-            string token = rightControl.Register(1, pureRight);
+            string token = await rightControl.Register(1, pureRight);
             if (!rightControl.IsGranted(token, "Add", "Authorizations"))
             {
                 Assert.Fail();
@@ -87,10 +88,8 @@ namespace Beste.Rights.Tests
         }
 
         [TestMethod]
-        public void CheckRegisterGivenAuthorizationsWithAdditionalAutorizations()
+        public async Task CheckRegisterGivenAuthorizationsWithAdditionalAutorizations()
         {
-            ActivateTestSchema(false);
-            AddInitialRightsToDatabase();
 
             RightControl rightControl = new RightControl("CheckRegister");
 
@@ -114,7 +113,7 @@ namespace Beste.Rights.Tests
                 RecourceModule = "SomethingElse"
             });
 
-            string token = rightControl.Register(1, pureRights);
+            string token = await rightControl.Register(1, pureRights);
             if (rightControl.IsGranted(token, "Add", "Authorizations"))
             {
                 Assert.Fail();
@@ -132,77 +131,11 @@ namespace Beste.Rights.Tests
                 Assert.Fail();
             }
         }
-        private static void AddInitialRightsToDatabase()
-        {
-            using (ISession s = SessionFactory.GetSession())
-            {
-                s.Delete("from BesteRightsAuthorization o");
-                s.Delete("from BesteRightsDefinition p");
-                s.Delete("from BesteRightsNamespace l");
-                s.Flush();
-            }
-            BesteRightsDefinition besteRightsDefinitionDelete;
-            BesteRightsDefinition besteRightsDefinitionAdd;
-            using (NHibernate.IStatelessSession session = SessionFactory.GetStatelessSession())
-            using (ITransaction transaction = session.BeginTransaction())
-            {
-                BesteRightsNamespace besteRightsNamespace = new BesteRightsNamespace();
-                besteRightsNamespace.Name = "CheckRegister";
-                session.Insert(besteRightsNamespace);
-
-                List<BesteRightsDefinition> besteRightsDefinitions = new List<BesteRightsDefinition>();
-                besteRightsDefinitionDelete = new BesteRightsDefinition
-                {
-                    BesteRightsNamespace = besteRightsNamespace,
-                    Operation = "Delete",
-                    RecourceModule = "Authorizations"
-                };
-                besteRightsDefinitionAdd = new BesteRightsDefinition
-                {
-                    BesteRightsNamespace = besteRightsNamespace,
-                    Operation = "Add",
-                    RecourceModule = "Authorizations"
-                };
-
-                besteRightsDefinitions.Add(besteRightsDefinitionDelete);
-                besteRightsDefinitions.Add(besteRightsDefinitionAdd);
-                foreach (BesteRightsDefinition item in besteRightsDefinitions)
-                {
-                    session.Insert(item);
-                }
-
-                List<BesteRightsAuthorization> besteRightsAuthorizations = new List<BesteRightsAuthorization>();
-                besteRightsAuthorizations.Add(new BesteRightsAuthorization
-                {
-                    Authorized = true,
-                    LegitimationId = 1,
-                    BesteRightsDefinition = besteRightsDefinitionAdd
-                });
-                besteRightsAuthorizations.Add(new BesteRightsAuthorization
-                {
-                    Authorized = false,
-                    LegitimationId = 1,
-                    BesteRightsDefinition = besteRightsDefinitionDelete
-                });
-
-                foreach (BesteRightsAuthorization item in besteRightsAuthorizations)
-                {
-                    session.Insert(item);
-                }
-
-
-                BesteRightsNamespace besteRightsAnotherNamespace = new BesteRightsNamespace();
-                besteRightsAnotherNamespace.Name = "CheckRegisterAnotherNamespace";
-                session.Insert(besteRightsAnotherNamespace);
-
-                transaction.Commit();
-            }
-        }
+        
 
         [TestMethod]
         public void CreateDefaultSettingsByCommitNotExistingPath()
         {
-            ActivateTestSchema(false);
             if (File.Exists("nonExistingSettings.xml"))
                 File.Delete("nonExistingSettings.xml");
             RightControl rightControl = new RightControl("CheckRegister", "nonExistingSettings.xml");
@@ -210,44 +143,11 @@ namespace Beste.Rights.Tests
                 Assert.Fail();
         }
 
-        public void ActivateTestSchema(bool regenerateSchema = false)
-        {
-            SessionFactory.Assemblies = Assemblies;
-            SessionFactory.ResetFactory();
-            SessionFactory.Assemblies = Assemblies;
-            string pathToConfig = "Resources" + Path.DirectorySeparatorChar;
-            DbSettings dbSettings = DbSettings.LoadFromFile<DbSettings>(pathToConfig + "DBConnectionSettings.xml");
-            dbSettings.DbSchema = "beste_test";
-            dbSettings.SaveToFile(pathToConfig + "DBConnectionSettings_test.xml");
-            SessionFactory.SettingsPath = pathToConfig + "DBConnectionSettings_test.xml";
-            if (regenerateSchema)
-            {
-                SessionFactory.GenerateTables();
-            }
-
-            // try to connect (check if table available)
-            try
-            {
-                using (NHibernate.ISession session = SessionFactory.GetSession())
-                using (ITransaction transaction = session.BeginTransaction())
-                {
-                    var besteRightsNamespace = session.QueryOver<BesteRightsNamespace>();
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.ToString());
-                // try to generate tables if connection failed
-                SessionFactory.GenerateTables();
-            }
-        }
 
 
         [TestMethod]
-        public void CheckGrandManually()
+        public async Task CheckGrandManually()
         {
-            ActivateTestSchema();
-            AddInitialRightsToDatabase();
 
             RightControl rightControl = new RightControl("CheckRegisterAnotherNamespace");
             string token = "SomeToken";
@@ -258,13 +158,75 @@ namespace Beste.Rights.Tests
                 Operation = "AddServerSettings_" + "SomeUser",
                 RecourceModule = "ServerSetting"
             });
-            string otherToken = rightControl.Register(1337, pureRights, token);
+            string otherToken = await rightControl.Register(1337, pureRights, token);
 
             if (!rightControl.IsGranted(token, "AddServerSettings_" + "SomeUser", "ServerSetting"))
             {
                 Assert.Fail();
             }
 
+        }
+
+        private static async Task AddInitialRightsToDatabase()
+        {
+            var request = new QueryRequest
+            {
+                TableName = BesteRightsAuthorization.TableName,
+                KeyConditions = new Dictionary<string, Condition>
+                    {
+                        { "TableId", new Condition()
+                            {
+                                ComparisonOperator = ComparisonOperator.EQ,
+                                AttributeValueList = new List<AttributeValue>
+                                {
+                                  new AttributeValue { N = TABLE_ID.ToString() }
+                                }
+
+                            }
+                        }
+                    },
+                //AttributesToGet = new List<string> { "user_id" }
+            };
+            var response = await AmazonDynamoDBFactory.Client.QueryAsync(request);
+            foreach (var item in response.Items)
+            {
+                BesteRightsAuthorization user = new BesteRightsAuthorization()
+                {
+                    TableId = TABLE_ID,
+                    Uuid = item["Uuid"].S
+                };
+                await AmazonDynamoDBFactory.Context.DeleteAsync(user);
+            }
+
+
+            await AmazonDynamoDBFactory.ExecuteInTransactionContext(async (client, context) =>
+            {
+                List<BesteRightsAuthorization> besteRightsAuthorizations = new List<BesteRightsAuthorization>();
+                besteRightsAuthorizations.Add(new BesteRightsAuthorization
+                {
+                    TableId = TABLE_ID,
+                    Namespace = "CheckRegister",
+                    Operation = "Delete",
+                    RecourceModule = "Authorizations",
+                    Authorized = false,
+                    LegitimationId = 1,
+                    Uuid = Guid.NewGuid().ToString()
+                });
+                besteRightsAuthorizations.Add(new BesteRightsAuthorization
+                {
+                    TableId = TABLE_ID,
+                    Namespace = "CheckRegister",
+                    Operation = "Add",
+                    RecourceModule = "Authorizations",
+                    Authorized = true,
+                    LegitimationId = 1,
+                    Uuid = Guid.NewGuid().ToString()
+                });
+                foreach(var item in besteRightsAuthorizations)
+                {
+                    await AmazonDynamoDBFactory.Context.SaveAsync(item);
+                }
+            });
         }
     }
 }

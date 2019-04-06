@@ -1,11 +1,13 @@
-﻿using Beste.Databases.Connector;
-using NHibernate;
-using NHibernate.Criterion;
+﻿using Amazon.DynamoDBv2;
+using Amazon.DynamoDBv2.Model;
+using Beste.Aws.Databases.Connector;
+using Beste.Databases.Connector;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace Beste.Rights
 {
@@ -35,8 +37,8 @@ namespace Beste.Rights
         /// any later check after the "registration" (for users e.g login, for "Computers" some network handshake for example)
         /// </summary>
 
-        readonly BesteRightsNamespace BesteRightsNamespace = null;
-        readonly List<BesteRightsDefinition> BesteRightsDefinitions = new List<BesteRightsDefinition>();
+        public static int TABLE_ID = 1;
+        readonly string BesteRightsNamespace = null;
         readonly Dictionary<string, BesteRightsToken> TokensForLegitimationIds = new Dictionary<string, BesteRightsToken>();
         readonly Settings settings = null;
         readonly string settingsPath = "Resources" + Path.DirectorySeparatorChar + "Beste.Rights.Settings.xml";
@@ -46,7 +48,7 @@ namespace Beste.Rights
                 this.settingsPath = settingsPath;
             settings = SettingsManager.LoadSettings(this.settingsPath);
 
-            BesteRightsNamespace = GetNameSpace(mainNamespace);
+            BesteRightsNamespace = mainNamespace;
         }
         
         /// <summary>
@@ -56,9 +58,9 @@ namespace Beste.Rights
         /// <param name="additionalRights"></param>
         /// <param name="token">optional pregiven token</param>
         /// <returns>the registered token</returns>
-        public string Register(int legitimationId, List<PureRight> additionalRights, string token = null)
+        public async Task<string> Register(int legitimationId, List<PureRight> additionalRights, string token = null)
         {
-            List<PureRight> pureRights = GetPureRights(legitimationId);
+            List<PureRight> pureRights = await GetPureRights(legitimationId);
             pureRights.AddRange(additionalRights);
             return ApplyRights(legitimationId, pureRights, token);
         }
@@ -70,9 +72,9 @@ namespace Beste.Rights
         /// <param name="additionalRight"></param>
         /// <param name="token">optional pregiven token</param>
         /// <returns>the registered token</returns>
-        public string Register(int legitimationId, PureRight additionalRight, string token = null)
+        public async Task<string> Register(int legitimationId, PureRight additionalRight, string token = null)
         {
-            List<PureRight> pureRights = GetPureRights(legitimationId);
+            List<PureRight> pureRights = await GetPureRights(legitimationId);
             pureRights.Add(additionalRight);
             return ApplyRights(legitimationId, pureRights, token);
         }
@@ -83,9 +85,9 @@ namespace Beste.Rights
         /// <param name="legitimationId">associated legitimated id</param>
         /// <param name="token">optional pregiven token</param>
         /// <returns>the registered token</returns>
-        public string Register(int legitimationId, string token = null)
+        public async Task<string> Register(int legitimationId, string token = null)
         {
-            List<PureRight> pureRights = GetPureRights(legitimationId);
+            List<PureRight> pureRights = await GetPureRights(legitimationId);
             return ApplyRights(legitimationId, pureRights, token);
         }
 
@@ -120,7 +122,7 @@ namespace Beste.Rights
             {
                 TokensForLegitimationIds.Add(authorizedToken, new BesteRightsToken
                 {
-                    BesteRightsNamespace = BesteRightsNamespace,
+                    Namespace = BesteRightsNamespace,
                     LegitimationId = legitimationId,
                     Token = authorizedToken,
                     Ends = DateTime.Now
@@ -134,74 +136,57 @@ namespace Beste.Rights
             return token;
         }
 
-        private List<PureRight> GetPureRights(int legitimationId)
+        private async Task<List<PureRight>> GetPureRights(int legitimationId)
         {
-            List<BesteRightsAuthorization> besteRightsAuthorizations = new List<BesteRightsAuthorization>();
-            using (NHibernate.ISession session = SessionFactory.GetSession())
-            using (ITransaction transaction = session.BeginTransaction())
+            return await AmazonDynamoDBFactory.ExecuteInTransactionContext(async (client, context) =>
             {
-
-                BesteRightsAuthorization besteRightsAuthorization = null;
-                BesteRightsDefinition besteRightsDefinition = null;
-
-                // projection list
-                var columns = Projections.ProjectionList();
-                // root properties
-                columns.Add(Projections.Property(() => besteRightsAuthorization.Authorized).As("Authorized"));
-                // reference properties
-                columns.Add(Projections.Property(() => besteRightsDefinition.RecourceModule).As("RecourceModule"));
-                columns.Add(Projections.Property(() => besteRightsDefinition.RecourceId).As("RecourceId"));
-                columns.Add(Projections.Property(() => besteRightsDefinition.Operation).As("Operation"));
-
-                var authorizations = session.QueryOver<BesteRightsAuthorization>(() => besteRightsAuthorization)
-                    .JoinAlias(() => besteRightsAuthorization.BesteRightsDefinition, () => besteRightsDefinition)
-                    .JoinAlias(() => besteRightsDefinition.BesteRightsNamespace, () => BesteRightsNamespace)
-                    .Where(() => besteRightsDefinition.BesteRightsNamespace == BesteRightsNamespace)
-                    .And(() => besteRightsAuthorization.LegitimationId == legitimationId)
-                    .Select(columns);
-                var list = authorizations
-                    .TransformUsing(new DeepTransformer<PureRight>())
-                    .List<PureRight>() as List<PureRight>;
-                //.List<BesteRightsNamespace>() as List<BesteRightsAuthorization>;
-                return list;
-            }
-        }
-
-        private List<BesteRightsDefinition> GetDefinitions(BesteRightsNamespace besteRightsNamespace)
-        {
-            List<BesteRightsDefinition> besteRightsDefinitions = new List<BesteRightsDefinition>();
-            using (NHibernate.ISession session = SessionFactory.GetSession())
-            using (ITransaction transaction = session.BeginTransaction())
-            {
-                BesteRightsDefinition besteRightsDefinition = null;
-                besteRightsDefinitions = session.QueryOver<BesteRightsDefinition>(() => besteRightsDefinition)
-                    .JoinAlias(() => besteRightsDefinition.BesteRightsNamespace, () => BesteRightsNamespace)
-                    .Where(() => besteRightsDefinition.BesteRightsNamespace == BesteRightsNamespace)
-                    .List<BesteRightsNamespace>() as List<BesteRightsDefinition>;
-                return besteRightsDefinitions;
-            }
-        }
-
-        private BesteRightsNamespace GetNameSpace(string mainNamespace)
-        {
-            BesteRightsNamespace besteRightsNamespace = null;
-            using (NHibernate.ISession session = SessionFactory.GetSession())
-            using (ITransaction transaction = session.BeginTransaction())
-            {
-                besteRightsNamespace = (BesteRightsNamespace)session.QueryOver<BesteRightsNamespace>()
-                    .Where(p => p.Name == mainNamespace)
-                    .SingleOrDefault();
-                if (besteRightsNamespace == null || besteRightsNamespace.Equals(new BesteRightsNamespace()))
+                List<PureRight> pureRights = new List<PureRight>();
+                var request = new QueryRequest
                 {
-                    besteRightsNamespace = new BesteRightsNamespace();
-                    besteRightsNamespace.Name = mainNamespace;
-                    session.Save(besteRightsNamespace);
-                    transaction.Commit();
-                }
-                return besteRightsNamespace;
-            }
-        }
+                    TableName = BesteRightsAuthorization.TableName,
+                    //ScanIndexForward = false,
+                    KeyConditions = new Dictionary<string, Condition>
+                    {
+                        { "TableId", new Condition()
+                            {
+                                ComparisonOperator = ComparisonOperator.EQ,
+                                AttributeValueList = new List<AttributeValue>
+                                {
+                                  new AttributeValue { N = TABLE_ID.ToString() }
+                                }
 
+                            }
+                        }
+                    },
+                    ExpressionAttributeNames = new Dictionary<string, string>
+                    {
+                        { "#namespace", "Namespace" },
+                        { "#legitimationid", "LegitimationId" }
+                    },
+                    ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                    {
+                        { ":namespace", new AttributeValue { S = BesteRightsNamespace } },
+                        { ":legitimationid", new AttributeValue { N = legitimationId.ToString() } }
+                    },
+                    FilterExpression = "#namespace = :namespace and #legitimationid = :legitimationid"
+                };
+                var response = await AmazonDynamoDBFactory.Client.QueryAsync(request);
+                foreach(var item in response.Items)
+                {
+                    PureRight pureRight = new PureRight
+                    {
+                        RecourceModule = item["RecourceModule"].S,
+                        Authorized = item["Authorized"].N == "1" ? true : false,
+                        Operation = item["Operation"].S
+                    };
+                    if (item.ContainsKey("RecourceId"))
+                        pureRight.RecourceId = Convert.ToInt32(item["RecourceId"].N);
+                    pureRights.Add(pureRight);
+                }
+                return pureRights;
+            });
+        }
+        
         private bool IsTokenRegistered(string token)
         {
             return TokensForLegitimationIds.ContainsKey(token);

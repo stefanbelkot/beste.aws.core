@@ -13,7 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Beste.Rights\Beste.Rights.csproj" />
+    <ProjectReference Include="..\Beste.Rights\Beste.Aws.Rights.csproj" />
   </ItemGroup>
 
   <ItemGroup>

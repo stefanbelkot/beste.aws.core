@@ -53,7 +53,7 @@ namespace Beste.Rights
 
                 var assembly = typeof(RightControl).GetTypeInfo().Assembly;
                 string[] names = assembly.GetManifestResourceNames();
-                Stream resourceStream = assembly.GetManifestResourceStream("Beste.Rights.Resources.Beste.Rights.Settings.xml");
+                Stream resourceStream = assembly.GetManifestResourceStream("Beste.Aws.Rights.Resources.Beste.Rights.Settings.xml");
                 resourceStream.WriteAllToFile(settingsPath);
                 resourceStream.Dispose();
             }
