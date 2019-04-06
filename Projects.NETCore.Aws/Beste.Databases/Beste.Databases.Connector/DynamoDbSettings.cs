@@ -7,11 +7,11 @@
     [System.ComponentModel.DesignerCategoryAttribute("code")]
     [System.Xml.Serialization.XmlTypeAttribute(AnonymousType = true)]
     [System.Xml.Serialization.XmlRootAttribute(Namespace = "", IsNullable = false)]
-    public partial class DbSettings : Beste.Xml.Xml
+    public partial class DynamoDbSettings : Beste.Xml.Xml
     {
 
         /// <remarks/>
-        public string Ip { get; set; }
+        public string RegionEndpoint { get; set; }
 
         /// <remarks/>
         public string DbSchema { get; set; }

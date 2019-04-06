@@ -1,52 +1,99 @@
-using FluentNHibernate.Automapping;
-using FluentNHibernate.Cfg;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using NHibernate;
-using System.IO;
-using System.Reflection;
-using Beste.Databases;
-using Beste.Databases.Connector;
+using Beste.Aws.Databases.Connector;
 using System;
+using Amazon.DynamoDBv2.Model;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Amazon.DynamoDBv2;
+using Amazon.DynamoDBv2.DataModel;
 
 namespace Beste.Databases.Tests
 {
     [TestClass]
     public class IntegrationTest
     {
-        readonly Assembly[] Assemblies =
-            {
-                Assembly.GetAssembly(typeof(User.UserMap))
-            };
+        public static int TABLE_ID = 1;
 
         [TestMethod]
-        public void TestDatabaseConnection()
+        public async Task TestDatabaseConnectionGetById()
         {
-            SessionFactory.Assemblies = Assemblies;
             ActivateTestSchema();
-            using (NHibernate.ISession session = SessionFactory.GetSession())
-            using (ITransaction transaction = session.BeginTransaction())
+
+            var request = new QueryRequest
             {
+                TableName = "user",
+                //ScanIndexForward = false,
+                KeyConditions = new Dictionary<string, Condition>
+                {
+                    { "id", new Condition()
+                        {
+                            ComparisonOperator = ComparisonOperator.EQ,
+                            AttributeValueList = new List<AttributeValue>
+                            {
+                              new AttributeValue { N = TABLE_ID.ToString() }
+                            }
+
+                        }
+                    }
+                },
+                Limit = 1,
+                AttributesToGet = new List<string> { "user_id" }
+            };
+            try
+            {
+                var response2 = await AmazonDynamoDBFactory.Client.QueryAsync(request);
+            }
+            catch(Exception ex)
+            {
+                Assert.Fail(ex.ToString());
+                Console.WriteLine(ex.ToString());
+            }
+        }
+        [TestMethod]
+        public async Task TestDatabaseConnectionGetMaxId()
+        {
+            ActivateTestSchema();
+            var scanRequest = new ScanRequest
+            {
+                TableName = "user",
+                //ProjectionExpression = "Id, Title, #pr",
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    { ":q_user_id", new AttributeValue { N = TABLE_ID.ToString() } }
+                },
+                ExpressionAttributeNames = new Dictionary<string, string>
+                {
+                    { "#user_id", "user_id" }
+                },
+                FilterExpression = "#user_id >= :q_user_id",
+                Limit = 1,
                 
+            };
+            try
+            {
+                var response2 = await AmazonDynamoDBFactory.Client.ScanAsync(scanRequest);
+            }
+            catch (Exception ex)
+            {
+                Assert.Fail(ex.ToString());
+                Console.WriteLine(ex.ToString());
             }
         }
 
         [TestMethod]
         public void ReGenerateTestTables()
         {
-            ActivateTestSchema();
-            SessionFactory.GenerateTables();
+            Assert.Inconclusive("No Regeneration of the Tables implemented for now. To implement: Complete Clean-Up of AWS tables for the UnitTest");
         }
 
         [TestMethod]
-        public void WriteInTestTable_User()
+        public async Task WriteInTestTable_User()
         {
             ActivateTestSchema();
             User.User user = null;
-            using (NHibernate.ISession session = SessionFactory.GetSession())
-            using (ITransaction transaction = session.BeginTransaction())
-            {
                 user = new User.User
                 {
+                    TableId = TABLE_ID,
                     Firstname = "Firstname",
                     Lastname = "Lastname",
                     Username = "Username",
@@ -56,75 +103,40 @@ namespace Beste.Databases.Tests
                     SaltValue = 1,
                     WrongPasswordCounter = 1
                 };
-                session.Save(user);
-                transaction.Commit();
-            }
-            using (NHibernate.ISession session = SessionFactory.GetSession())
-            using (ITransaction transaction = session.BeginTransaction())
-            {
-                User.User dbUser = session.Get<User.User>(user.UserId);
-                if (!dbUser.Equals(user))
-                    Assert.Fail();
-            }
+            await AmazonDynamoDBFactory.Context.SaveAsync(user);
+            User.User dbUser = await AmazonDynamoDBFactory.Context.LoadAsync(user);
+            if (!dbUser.Equals(user))
+                Assert.Fail();
         }
 
         [TestMethod]
-        public void WriteInTestTableFunctionalProgramming_User()
+        public async Task WriteInTestTableFunctionalProgramming_User()
         {
             ActivateTestSchema();
 
-            User.User user = SessionFactory.ExecuteInTransactionContext(AddTestUser);
+            User.User user = await AmazonDynamoDBFactory.ExecuteInTransactionContext(AddTestUser);
 
-            void checkUserExists(ISession session, ITransaction transaction)
+            async Task checkUserExists(IAmazonDynamoDB client, IDynamoDBContext context)
             {
-                User.User dbUser = session.Get<User.User>(user.UserId);
+                User.User dbUser = await AmazonDynamoDBFactory.Context.LoadAsync<User.User>(user);
                 if (!dbUser.Equals(user))
                     Assert.Fail();
             }
-            SessionFactory.ExecuteInTransactionContext(checkUserExists);
+            await AmazonDynamoDBFactory.ExecuteInTransactionContext(checkUserExists);
         }
 
         [TestMethod]
         public void WriteDefaultDBSettings()
         {
-            ActivateTestSchema();
-            try
-            {
-                string settingsPath = "TestData" + Path.DirectorySeparatorChar + "NonExistingSettings.xml";
-                if (File.Exists(settingsPath))
-                    File.Delete(settingsPath);
-                SessionFactory.SettingsPath = settingsPath;
-                SessionFactory.ResetFactory();
-                SessionFactory.ExecuteInTransactionContext((s,t)=> { });
-            }
-            catch(FluentConfigurationException ex)
-            {
-                //connection error is okay because default DB may not exist on test system
-                if (!ex.ToString().Contains("Authentication to host 'localhost' for user 'root' using method 'mysql_native_password' failed with message: Unknown database 'beste'"))
-                {
-                    Console.WriteLine(ex.ToString());
-                    Assert.Fail();
-                }
-            }
-            catch(Exception ex)
-            {
-                Console.WriteLine(ex.ToString());
-                Assert.Fail();
-            }
+            Assert.Inconclusive("WriteDefaultDBSettings invalid! Because we won't add our AWS key+secred to the project!");
         }
 
         public void ActivateTestSchema()
         {
-            SessionFactory.Assemblies = Assemblies;
-            SessionFactory.ResetFactory();
-            string pathToConfig = "TestData" + Path.DirectorySeparatorChar;
-            DbSettings dbSettings = DbSettings.LoadFromFile<DbSettings>(pathToConfig + "DBConnectionSettings.xml");
-            dbSettings.DbSchema = "beste_test";
-            dbSettings.SaveToFile(pathToConfig + "DBConnectionSettings_test.xml");
-            SessionFactory.SettingsPath = pathToConfig + "DBConnectionSettings_test.xml";
+            //todo access tables with e.g. _test post or pre fix
         }
 
-        public User.User AddTestUser(ISession session, ITransaction transaction)
+        public async Task<User.User> AddTestUser(IAmazonDynamoDB client, IDynamoDBContext context)
         {
             User.User user = null;
             user = new User.User
@@ -138,8 +150,7 @@ namespace Beste.Databases.Tests
                 SaltValue = 1,
                 WrongPasswordCounter = 1
             };
-            session.Save(user);
-            transaction.Commit();
+            await AmazonDynamoDBFactory.Context.SaveAsync(user);
             return user;
         }
     }

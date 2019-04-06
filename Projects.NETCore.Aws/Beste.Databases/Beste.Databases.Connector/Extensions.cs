@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
-namespace Beste.Databases.Connector
+namespace Beste.Aws.Databases.Connector
 {
     internal static class Extensions
     {

@@ -13,8 +13,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Beste.Databases.Connector\Beste.Databases.Connector.csproj" />
-    <ProjectReference Include="..\Beste.Databases.User\Beste.Databases.User.csproj" />
+    <ProjectReference Include="..\Beste.Databases.Connector\Beste.Aws.Databases.Connector.csproj" />
+    <ProjectReference Include="..\Beste.Databases.User\Beste.Aws.Databases.User.csproj" />
   </ItemGroup>
 
   <ItemGroup>

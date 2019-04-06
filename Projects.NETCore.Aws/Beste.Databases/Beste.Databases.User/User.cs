@@ -1,16 +1,25 @@
 using System;
 using System.Text;
 using System.Collections.Generic;
-using FluentNHibernate.Mapping;
+using Amazon.DynamoDBv2.DataModel;
 
 namespace Beste.Databases.User {
-    
+
+    [DynamoDBTable(TableName)]
     public class User {
-        public virtual int UserId { get; set; }
+
+        [DynamoDBIgnore]
+        public const string TableName = "user";
+
+        [DynamoDBHashKey]
+        [DynamoDBProperty("id")]
+        public virtual int TableId { get; set; }
+        [DynamoDBRangeKey]
+        [DynamoDBProperty("username")]
+        public virtual string Username { get; set; }
         public virtual string Firstname { get; set; }
         public virtual string Lastname { get; set; }
         public virtual string Email { get; set; }
-        public virtual string Username { get; set; }
         public virtual string Password { get; set; }
         public virtual int? SaltValue { get; set; }
         public virtual bool? MustChangePassword { get; set; }
@@ -20,7 +29,7 @@ namespace Beste.Databases.User {
         {
             var user = obj as User;
             return user != null &&
-                   UserId == user.UserId &&
+                   TableId == user.TableId &&
                    Firstname == user.Firstname &&
                    Lastname == user.Lastname &&
                    Email == user.Email &&
@@ -34,7 +43,7 @@ namespace Beste.Databases.User {
         public override int GetHashCode()
         {
             var hash = new HashCode();
-            hash.Add(UserId);
+            hash.Add(TableId);
             hash.Add(Firstname);
             hash.Add(Lastname);
             hash.Add(Email);
@@ -47,22 +56,4 @@ namespace Beste.Databases.User {
         }
     }
 
-    public class UserMap : ClassMap<User>
-    {
-
-        public UserMap()
-        {
-            Table("user");
-            LazyLoad();
-            Id(x => x.UserId).GeneratedBy.Identity().Column("user_id");
-            Map(x => x.Firstname).Column("firstname");
-            Map(x => x.Lastname).Column("lastname");
-            Map(x => x.Email).Column("email");
-            Map(x => x.Username).Column("username");
-            Map(x => x.Password).Column("password");
-            Map(x => x.SaltValue).Column("salt_value");
-            Map(x => x.MustChangePassword).Column("must_change_password");
-            Map(x => x.WrongPasswordCounter).Column("wrong_password_counter");
-        }
-    }
 }
