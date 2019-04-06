@@ -6,28 +6,29 @@ using System.Reflection;
 using Beste.Databases.Connector;
 using System.IO;
 using System;
-using NHibernate;
 using Beste.Core.Models;
+using Amazon.DynamoDBv2.Model;
+using Amazon.DynamoDBv2;
+using System.Collections.Generic;
+using Beste.Aws.Databases.Connector;
+using System.Threading.Tasks;
+using Beste.Aws.Module;
 
 namespace Beste.Module.Tests
 {
     [TestClass]
     public class UnitTests
     {
-        readonly Assembly[] Assemblies =
-        {
-            Assembly.GetAssembly(typeof(UserMap))
-        };
+        public static int TABLE_ID = 1;
 
         [TestInitialize]
-        public void TestInitialize()
+        public async Task TestInitialize()
         {
-            ActivateTestSchema();
-            ResetTables();
+            await ResetTables();
         }
 
         [TestMethod]
-        public void CreateUserWrongPasswordGuidelines()
+        public async Task CreateUserWrongPasswordGuidelines()
         {
             BesteUser besteUser = new BesteUser();
             User user = new User();
@@ -36,25 +37,25 @@ namespace Beste.Module.Tests
             user.Firstname = "Firstname";
             user.Email = "Email";
             user.Password = "passwort";
-            ModifyUserResponse response = besteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            ModifyUserResponse response = await besteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(response, ModifyUserResult.PASSWORD_GUIDELINES_ERROR);
 
         }
 
         [TestMethod]
-        public void CreateUserMissingParams()
+        public async Task CreateUserMissingParams()
         {
             BesteUser besteUser = new BesteUser();
             User user = new User();
             user.Username = "Username";
             user.Password = "Passwort1$";
-            ModifyUserResponse response = besteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            ModifyUserResponse response = await besteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(response, ModifyUserResult.MISSING_USER_PARAMS);
             
         }
 
         [TestMethod]
-        public void CreateUserAndLogin()
+        public async Task CreateUserAndLogin()
         {
             BesteUser besteUser = new BesteUser();
 
@@ -67,7 +68,7 @@ namespace Beste.Module.Tests
                 Password = "Passwort1$"
             };
 
-            ModifyUserResponse response = besteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            ModifyUserResponse response = await besteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(response, ModifyUserResult.SUCCESS);
 
             User loginUser = new User
@@ -75,19 +76,19 @@ namespace Beste.Module.Tests
                 Username = user.Username,
                 Password = user.Password
             };
-            BesteUserAuthentificationResponse authResponse = besteUser.Authenticate(JsonConvert.SerializeObject(loginUser, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            BesteUserAuthentificationResponse authResponse = await besteUser.Authenticate(JsonConvert.SerializeObject(loginUser, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(authResponse, BesteUserAuthentificationResult.MUST_CHANGE_PASSWORT);
 
-            response = besteUser.ChangePasswordByUser(JsonConvert.SerializeObject(loginUser, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            response = await besteUser.ChangePasswordByUser(JsonConvert.SerializeObject(loginUser, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(response, ModifyUserResult.SUCCESS);
 
-            authResponse = besteUser.Authenticate(JsonConvert.SerializeObject(loginUser, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            authResponse = await besteUser.Authenticate(JsonConvert.SerializeObject(loginUser, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(authResponse, BesteUserAuthentificationResult.SUCCESS);
 
         }
 
         [TestMethod]
-        public void CreateUserAndEdit()
+        public async Task CreateUserAndEdit()
         {
             BesteUser besteUser = new BesteUser();
             User user = new User
@@ -98,7 +99,7 @@ namespace Beste.Module.Tests
                 Email = "Email",
                 Password = "Passwort1$"
             };
-            ModifyUserResponse response = besteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            ModifyUserResponse response = await besteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(response, ModifyUserResult.SUCCESS);
 
             User loginUser = new User
@@ -110,16 +111,16 @@ namespace Beste.Module.Tests
                 Password = "Passwort1$",
                 MustChangePassword = false
             };
-            response = besteUser.EditUser(JsonConvert.SerializeObject(loginUser, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            response = await besteUser.EditUser(JsonConvert.SerializeObject(loginUser, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(response, ModifyUserResult.SUCCESS);
 
-            BesteUserAuthentificationResponse authResponse = besteUser.Authenticate(JsonConvert.SerializeObject(loginUser, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            BesteUserAuthentificationResponse authResponse = await besteUser.Authenticate(JsonConvert.SerializeObject(loginUser, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(authResponse, BesteUserAuthentificationResult.SUCCESS);
 
         }
 
         [TestMethod]
-        public void CreateUserAndChangePasswortBreakRules()
+        public async Task CreateUserAndChangePasswortBreakRules()
         {
             BesteUser besteUser = new BesteUser();
             User user = new User
@@ -130,7 +131,7 @@ namespace Beste.Module.Tests
                 Email = "Email",
                 Password = "Passwort1$"
             };
-            ModifyUserResponse response = besteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            ModifyUserResponse response = await besteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(response, ModifyUserResult.SUCCESS);
 
             User loginUser = new User
@@ -138,23 +139,23 @@ namespace Beste.Module.Tests
                 Username = user.Username,
                 Password = "passwort"
             };
-            response = besteUser.ChangePasswordByUser(JsonConvert.SerializeObject(loginUser, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            response = await besteUser.ChangePasswordByUser(JsonConvert.SerializeObject(loginUser, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(response, ModifyUserResult.PASSWORD_GUIDELINES_ERROR);
 
         }
         [TestMethod]
-        public void CreateUserAndDelete()
+        public async Task CreateUserAndDelete()
         {
             BesteUser besteUser = new BesteUser();
             User user = new User
             {
-                Username = "UsernameLogin",
+                Username = "UsernameCreateAndDelete",
                 Lastname = "Lastname",
                 Firstname = "Firstname",
                 Email = "Email",
                 Password = "Passwort1$"
             };
-            ModifyUserResponse response = besteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            ModifyUserResponse response = await besteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(response, ModifyUserResult.SUCCESS);
 
             User loginUser = new User
@@ -162,31 +163,31 @@ namespace Beste.Module.Tests
                 Username = user.Username,
                 Password = user.Password
             };
-            response = besteUser.DeleteUser(JsonConvert.SerializeObject(loginUser, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            response = await besteUser.DeleteUser(JsonConvert.SerializeObject(loginUser, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(response, ModifyUserResult.SUCCESS);
         }
         [TestMethod]
 
-        public void CreateDuplicateUser()
+        public async Task CreateDuplicateUser()
         {
             BesteUser besteUser = new BesteUser();
             User user = new User
             {
-                Username = "UsernameLogin",
+                Username = "UsernameDuplicate",
                 Lastname = "Lastname",
                 Firstname = "Firstname",
                 Email = "Email",
                 Password = "Passwort1$"
             };
-            ModifyUserResponse response = besteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            ModifyUserResponse response = await besteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(response, ModifyUserResult.SUCCESS);
 
-            response = besteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            response = await besteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(response, ModifyUserResult.USER_ALREADY_EXISTS);
         }
 
         [TestMethod]
-        public void UnknownUser()
+        public async Task UnknownUser()
         {
             BesteUser besteUser = new BesteUser();
             User user = new User
@@ -194,16 +195,16 @@ namespace Beste.Module.Tests
                 Username = "UnknnownUsernameLogin",
                 Password = "Passwort1$"
             };
-            BesteUserAuthentificationResponse authResponse = besteUser.Authenticate(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            BesteUserAuthentificationResponse authResponse = await besteUser.Authenticate(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(authResponse, BesteUserAuthentificationResult.USER_UNKNOWN);
             
-            ModifyUserResponse response = besteUser.EditUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            ModifyUserResponse response = await besteUser.EditUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(response, ModifyUserResult.USER_UNKNOWN);
 
-            response = besteUser.ChangePasswordByUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            response = await besteUser.ChangePasswordByUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(response, ModifyUserResult.USER_UNKNOWN);
 
-            response = besteUser.DeleteUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            response = await besteUser.DeleteUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(response, ModifyUserResult.USER_UNKNOWN);
 
         }
@@ -222,7 +223,7 @@ namespace Beste.Module.Tests
         }
 
         [TestMethod]
-        public void CreateUserAndWrongPasswortCounter()
+        public async Task CreateUserAndWrongPasswortCounter()
         {
             BesteUser besteUser = new BesteUser();
             User user = new User
@@ -233,7 +234,7 @@ namespace Beste.Module.Tests
                 Email = "Email",
                 Password = "Passwort1$"
             };
-            ModifyUserResponse response = besteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            ModifyUserResponse response = await besteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(response, ModifyUserResult.SUCCESS);
 
             User loginUser = new User();
@@ -243,40 +244,40 @@ namespace Beste.Module.Tests
             BesteUserAuthentificationResponse authResponse;
             for (int i = 0; i < 13; i++)
             {
-                authResponse = besteUser.Authenticate(JsonConvert.SerializeObject(loginUser, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+                authResponse = await besteUser.Authenticate(JsonConvert.SerializeObject(loginUser, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
                 ValiateResponse(authResponse, BesteUserAuthentificationResult.WRONG_PASSWORD);
             }
 
             loginUser.Password = user.Password;
-            authResponse = besteUser.Authenticate(JsonConvert.SerializeObject(loginUser, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            authResponse = await besteUser.Authenticate(JsonConvert.SerializeObject(loginUser, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(authResponse, BesteUserAuthentificationResult.WRONG_PASSWORD_COUNTER_TOO_HIGH);
 
         }
 
         [TestMethod]
-        public void ForcedJsonSerializationErrors()
+        public async Task ForcedJsonSerializationErrors()
         {
             BesteUser besteUser = new BesteUser();
-            ModifyUserResponse response = besteUser.CreateUser("no json]");
+            ModifyUserResponse response = await besteUser.CreateUser("no json]");
             ValiateResponse(response, ModifyUserResult.JSON_ERROR);
 
-            response = besteUser.ChangePasswordByUser("no json]");
+            response = await besteUser.ChangePasswordByUser("no json]");
             ValiateResponse(response, ModifyUserResult.JSON_ERROR);
 
-            response = besteUser.DeleteUser("no json]");
+            response = await besteUser.DeleteUser("no json]");
             ValiateResponse(response, ModifyUserResult.JSON_ERROR);
 
-            response = besteUser.EditUser("no json]");
+            response = await besteUser.EditUser("no json]");
             ValiateResponse(response, ModifyUserResult.JSON_ERROR);
 
-            BesteUserAuthentificationResponse authResponse = besteUser.Authenticate("no json]");
+            BesteUserAuthentificationResponse authResponse = await besteUser.Authenticate("no json]");
             ValiateResponse(authResponse, BesteUserAuthentificationResult.JSON_ERROR);
 
 
         }
 
         [TestMethod]
-        public void WrongParameters()
+        public async Task WrongParameters()
         {
             BesteUser besteUser = new BesteUser();
             User user = new User
@@ -284,11 +285,11 @@ namespace Beste.Module.Tests
                 Username = "",
                 Password = ""
             };
-            BesteUserAuthentificationResponse authResponse = besteUser.Authenticate(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            BesteUserAuthentificationResponse authResponse = await besteUser.Authenticate(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(authResponse, BesteUserAuthentificationResult.WRONG_PARAMETER);
         }
         [TestMethod]
-        public void CreateUserAndTryLoginWithWrongPepper()
+        public async Task CreateUserAndTryLoginWithWrongPepper()
         {
             BesteUser besteUser = new BesteUser();
             User user = new User
@@ -299,7 +300,7 @@ namespace Beste.Module.Tests
                 Email = "Email",
                 Password = "Passwort1$"
             };
-            ModifyUserResponse response = besteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            ModifyUserResponse response = await besteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(response, ModifyUserResult.SUCCESS);
 
             User loginUser = new User
@@ -307,15 +308,15 @@ namespace Beste.Module.Tests
                 Username = user.Username,
                 Password = user.Password
             };
-            response = besteUser.ChangePasswordByUser(JsonConvert.SerializeObject(loginUser, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            response = await besteUser.ChangePasswordByUser(JsonConvert.SerializeObject(loginUser, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(response, ModifyUserResult.SUCCESS);
 
             BesteUser besteUserOtherPepper = new BesteUser("otherPepper");
-            BesteUserAuthentificationResponse authResponse = besteUserOtherPepper.Authenticate(JsonConvert.SerializeObject(loginUser, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            BesteUserAuthentificationResponse authResponse = await besteUserOtherPepper.Authenticate(JsonConvert.SerializeObject(loginUser, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(authResponse, BesteUserAuthentificationResult.WRONG_PASSWORD);
         }
         [TestMethod]
-        public void GetUsers()
+        public async Task GetUsers()
         {
             BesteUser besteUser = new BesteUser();
             User user = new User
@@ -326,21 +327,21 @@ namespace Beste.Module.Tests
                 Email = "A_C_Email",
                 Password = "Passwort1$"
             };
-            ModifyUserResponse response = besteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            ModifyUserResponse response = await besteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(response, ModifyUserResult.SUCCESS);
 
             user.Username = "A_B_User";
             user.Email = "A_B_Email";
-            response = besteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            response = await besteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(response, ModifyUserResult.SUCCESS);
 
             user.Username = "A_C_User";
             user.Email = "A_A_Email";
-            response = besteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            response = await besteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(response, ModifyUserResult.SUCCESS);
 
             GetUsersParams getUsersParams = new GetUsersParams(10, 0, SortUsersBy.USERNAME);
-            GetUsersResponse getUserResponse = besteUser.GetUsers(JsonConvert.SerializeObject(getUsersParams, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            GetUsersResponse getUserResponse = await besteUser.GetUsers(JsonConvert.SerializeObject(getUsersParams, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(getUserResponse, GetUsersResult.SUCCESS);
             if(getUserResponse.Users.Count < 3)
             {
@@ -352,7 +353,7 @@ namespace Beste.Module.Tests
             }
 
             getUsersParams = new GetUsersParams(10, 1, SortUsersBy.USERNAME);
-            getUserResponse = besteUser.GetUsers(JsonConvert.SerializeObject(getUsersParams, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            getUserResponse = await besteUser.GetUsers(JsonConvert.SerializeObject(getUsersParams, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(getUserResponse, GetUsersResult.SUCCESS);
             if (getUserResponse.Users.Count < 2)
             {
@@ -364,7 +365,7 @@ namespace Beste.Module.Tests
             }
 
             getUsersParams = new GetUsersParams(1, 1, SortUsersBy.USERNAME);
-            getUserResponse = besteUser.GetUsers(JsonConvert.SerializeObject(getUsersParams, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            getUserResponse = await besteUser.GetUsers(JsonConvert.SerializeObject(getUsersParams, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(getUserResponse, GetUsersResult.SUCCESS);
             if (getUserResponse.Users.Count != 1)
             {
@@ -376,7 +377,7 @@ namespace Beste.Module.Tests
             }
 
             getUsersParams = new GetUsersParams(10, 2, SortUsersBy.EMAIL);
-            getUserResponse = besteUser.GetUsers(JsonConvert.SerializeObject(getUsersParams, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            getUserResponse = await besteUser.GetUsers(JsonConvert.SerializeObject(getUsersParams, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(getUserResponse, GetUsersResult.SUCCESS);
 
             if (getUserResponse.Users[0].Email != "A_C_Email")
@@ -384,7 +385,7 @@ namespace Beste.Module.Tests
                 Assert.Fail("getUserResponse.Users[0].Email != 'A_C_Email'");
             }
             
-            getUserResponse = besteUser.GetUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            getUserResponse = await besteUser.GetUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             ValiateResponse(getUserResponse, GetUsersResult.SUCCESS);
             if (getUserResponse.Users[0].Email != "A_A_Email")
             {
@@ -403,52 +404,44 @@ namespace Beste.Module.Tests
             }
         }
 
-        public void ActivateTestSchema(bool regenerateSchema = false)
-        {
-            SessionFactory.Assemblies = Assemblies;
-            SessionFactory.ResetFactory();
-            string pathToConfig = "TestData" + Path.DirectorySeparatorChar;
-            SessionFactory.SettingsPath = pathToConfig + "DBConnectionSettings_test.xml";
-            SessionFactory.ResetFactory();
-            SessionFactory.Assemblies = Assemblies;
-            if (regenerateSchema)
-            {
-                SessionFactory.GenerateTables();
-            }
-
-            // try to connect (check if table available)
-            try
-            {
-                using (NHibernate.ISession session = SessionFactory.GetSession())
-                using (ITransaction transaction = session.BeginTransaction())
-                {
-                    var result = session.QueryOver<User>();
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.ToString());
-                // try to generate tables if connection failed
-                SessionFactory.GenerateTables();
-            }
-        }
-        public void ResetTables()
+        public async Task ResetTables()
         {
 
             // try to connect (check if table available)
             try
             {
-                using (ISession s = SessionFactory.GetSession())
+                var request = new QueryRequest
                 {
-                    s.Delete("from User o");
-                    s.Flush();
+                    TableName = "user",
+                    KeyConditions = new Dictionary<string, Condition>
+                    {
+                        { "id", new Condition()
+                            {
+                                ComparisonOperator = ComparisonOperator.EQ,
+                                AttributeValueList = new List<AttributeValue>
+                                {
+                                  new AttributeValue { N = TABLE_ID.ToString() }
+                                }
+
+                            }
+                        }
+                    },
+                    //AttributesToGet = new List<string> { "user_id" }
+                };
+                var response = await AmazonDynamoDBFactory.Client.QueryAsync(request);
+                foreach (var item in response.Items)
+                {
+                    User user = new User()
+                    {
+                        TableId = TABLE_ID,
+                        Username = item["username"].S
+                    };
+                    await AmazonDynamoDBFactory.Context.DeleteAsync(user);
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine(ex.ToString());
-                // try to generate tables if connection failed
-                SessionFactory.GenerateTables();
             }
 
         }

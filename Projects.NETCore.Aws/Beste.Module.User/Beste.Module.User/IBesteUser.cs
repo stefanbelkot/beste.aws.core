@@ -1,12 +1,13 @@
 ﻿using Beste.Core.Models;
 using Beste.Databases.User;
-using Beste.Module.Settings;
+using Beste.Aws.Module.Settings;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
-namespace Beste.Module
+namespace Beste.Aws.Module
 {
     interface IBesteUser
     {
@@ -16,35 +17,35 @@ namespace Beste.Module
         /// </summary>
         /// <param name="param">provided param to authenticate a user, e.g. json</param>
         /// <returns>response</returns>
-        BesteUserAuthentificationResponse Authenticate(string param);
+        Task<BesteUserAuthentificationResponse> Authenticate(string param);
 
         /// <summary>
         /// Create a user
         /// </summary>
         /// <param name="param">provided param to create a user, e.g. json</param>
         /// <returns>response</returns>
-        ModifyUserResponse CreateUser(string param);
+        Task<ModifyUserResponse> CreateUser(string param);
 
         /// <summary>
         /// Edits a user
         /// </summary>
         /// <param name="param">provided param to edit a user, e.g. json</param>
         /// <returns>response</returns>
-        ModifyUserResponse EditUser(string param);
+        Task<ModifyUserResponse> EditUser(string param);
 
         /// <summary>
         /// Change of password by the user
         /// </summary>
         /// <param name="param">provided param to change the user password, e.g. json</param>
         /// <returns>response</returns>
-        ModifyUserResponse ChangePasswordByUser(string param);
-        
+        Task<ModifyUserResponse> ChangePasswordByUser(string param);
+
         /// <summary>
         /// Delete a specified user
         /// </summary>
         /// <param name="param">provided param to delete a user, e.g. json</param>
         /// <returns>response</returns>
-        ModifyUserResponse DeleteUser(string param);
+        Task<ModifyUserResponse> DeleteUser(string param);
         
     }
 

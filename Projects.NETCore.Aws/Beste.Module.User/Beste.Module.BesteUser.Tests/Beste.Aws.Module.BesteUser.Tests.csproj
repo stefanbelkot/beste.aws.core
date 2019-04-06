@@ -13,13 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Beste.Module.User\Beste.Module.User.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="TestData\DBConnectionSettings_test.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
+    <ProjectReference Include="..\Beste.Module.User\Beste.Aws.Module.User.csproj" />
   </ItemGroup>
 
 </Project>
