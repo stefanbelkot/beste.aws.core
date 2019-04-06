@@ -1,0 +1,11 @@
+﻿All Classes under the folder "AccessControlList" are under the Licence_CPOL.htm
+The source of the code is:
+https://www.codeproject.com/Articles/1056853/Lightning-Fast-Access-Control-Lists-in-Csharp
+
+Changes to the original code:
+- Changed Namespace to fit this project
+- changed attributes access level to protected in class AccessControlList.cs:
+	private readonly BaseControlList _granted;
+    private readonly BaseControlList _denied;
+- changed functions access level to private because not wanted to be used:
+	Explain, 

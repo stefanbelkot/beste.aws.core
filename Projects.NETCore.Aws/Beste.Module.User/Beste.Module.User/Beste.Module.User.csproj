@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <AssemblyName>Beste.Module.User</AssemblyName>
+    <Version>0.2.2</Version>
+    <Copyright>2019 - Beste Software</Copyright>
+    <Description>Library to manage users in Beste Software modules</Description>
+    <PackageReleaseNotes></PackageReleaseNotes>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <NeutralLanguage></NeutralLanguage>
+    <PackageId>Beste.Module.User</PackageId>
+  </PropertyGroup>
+
+  <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
+    <Exec Command="echo &quot;Delete all .nupkg files from $(TargetDir) parent&quot;&#xD;&#xA;del &quot;$(TargetDir)\..\*.nupkg&quot;" />
+  </Target>
+
+  <ItemGroup>
+    <PackageReference Include="Beste.Core.Models" Version="0.1.1" />
+    <PackageReference Include="Beste.Databases.Connector" Version="0.1.4" />
+    <PackageReference Include="Beste.Databases.User" Version="0.1.3" />
+    <PackageReference Include="Beste.Xml" Version="0.1.4" />
+    <PackageReference Include="Newtonsoft.Json" Version="12.0.1" />
+  </ItemGroup>
+
+</Project>

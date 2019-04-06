@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Settings xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <TokenInitialTimeout>
+    <Hours>24</Hours>
+    <Minutes>0</Minutes>
+    <Seconds>0</Seconds>
+  </TokenInitialTimeout>
+  <TokenRefreshOnUsage>
+    <Hours>1</Hours>
+    <Minutes>0</Minutes>
+    <Seconds>0</Seconds>
+  </TokenRefreshOnUsage>
+</Settings>

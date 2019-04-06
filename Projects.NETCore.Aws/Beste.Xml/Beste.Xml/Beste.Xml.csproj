@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Version>0.1.4</Version>
+    <Copyright>2019 Beste Software</Copyright>
+    <PackageReleaseNotes>** 0.1.3-rc **
+- Feature: added unittest to create file by ressource with new now probably working handling
+-- internal ConsoleTester application can be removed if it works like this
+
+** 0.1.2 **
+- Feature: Try to write a xml default file from recources if found inside
+
+** 0.1.1 **
+- fixed not initialized xml Serializer problem</PackageReleaseNotes>
+  </PropertyGroup>
+
+  <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
+    <Exec Command="del &quot;$(TargetDir)\..\*.nupkg&quot;" />
+  </Target>
+
+</Project>

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Version>0.1.1</Version>
+    <Description>Library to provide basic Beste.Core.Models</Description>
+    <Copyright>2019 - Beste Software</Copyright>
+    <PackageId>Beste.Core.Models</PackageId>
+  </PropertyGroup>
+
+  <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
+    <Exec Command="echo &quot;Delete all .nupkg files from $(TargetDir) parent&quot;&#xD;&#xA;del &quot;$(TargetDir)\..\*.nupkg&quot;" />
+  </Target>
+
+</Project>
