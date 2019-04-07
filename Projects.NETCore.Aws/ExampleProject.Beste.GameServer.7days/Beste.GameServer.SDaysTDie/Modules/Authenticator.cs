@@ -1,4 +1,5 @@
-﻿using Beste.Core.Models;
+﻿using Beste.Aws.Module;
+using Beste.Core.Models;
 using Beste.Databases.User;
 using Beste.GameServer.SDaysTDie.Connections;
 using Beste.Module;
@@ -47,13 +48,13 @@ namespace Beste.GameServer.SDaysTDie.Modules
                 Rights = rights;
             }
         }
-        static Beste.Module.BesteUser BesteUser { get; set; } = new Module.BesteUser();
+        static Beste.Aws.Module.BesteUser BesteUser { get; set; } = new Beste.Aws.Module.BesteUser();
         static RightControl RightControl { get; set; } = new RightControl("Beste.GameServer.SDaysTDie.User");
 
         internal async static Task HandleLogin(WebSocketHandler webSocketHandler)
         {
             User user = JsonConvert.DeserializeObject<User>(webSocketHandler.ReceivedCommand.CommandData.ToString());
-            BesteUserAuthentificationResponse response = BesteUser.Authenticate(webSocketHandler.ReceivedCommand.CommandData.ToString());
+            BesteUserAuthentificationResponse response = await BesteUser.Authenticate(webSocketHandler.ReceivedCommand.CommandData.ToString());
             if (response.Result == BesteUserAuthentificationResult.SUCCESS ||
                 response.Result == BesteUserAuthentificationResult.MUST_CHANGE_PASSWORT)
             {
@@ -83,7 +84,7 @@ namespace Beste.GameServer.SDaysTDie.Modules
                     Operation = "GetUser_" + webSocketHandler.User.Username,
                     RecourceModule = "User"
                 });
-                webSocketHandler.ConnectedUserToken = RightControl.Register(webSocketHandler.User.UserId, pureRights);
+                webSocketHandler.ConnectedUserToken = await RightControl.Register(webSocketHandler.User.Uuid, pureRights);
             }
             Command resonseCommand = new Command("AuthentificationResponse", response);
             await webSocketHandler.Send(resonseCommand);
@@ -91,7 +92,9 @@ namespace Beste.GameServer.SDaysTDie.Modules
 
         internal async static Task CreateUser(WebSocketHandler webSocketHandler)
         {
-            Command resonseCommand = ModifyUser(() => BesteUser.CreateUser(webSocketHandler.ReceivedCommand.CommandData.ToString()),
+            Command resonseCommand = await ModifyUser(async () => {
+                return await BesteUser.CreateUser(webSocketHandler.ReceivedCommand.CommandData.ToString());
+                },
                 "CreateUser",
                 webSocketHandler);
             await webSocketHandler.Send(resonseCommand);
@@ -99,7 +102,9 @@ namespace Beste.GameServer.SDaysTDie.Modules
 
         internal async static Task ChangePassword(WebSocketHandler webSocketHandler)
         {
-            Command resonseCommand = ModifyUser(() => BesteUser.ChangePasswordByUser(webSocketHandler.ReceivedCommand.CommandData.ToString()),
+            Command resonseCommand = await ModifyUser(async () => {
+                return await BesteUser.ChangePasswordByUser(webSocketHandler.ReceivedCommand.CommandData.ToString());
+                },
                 "ChangePassword",
                 webSocketHandler);
             await webSocketHandler.Send(resonseCommand);
@@ -107,7 +112,10 @@ namespace Beste.GameServer.SDaysTDie.Modules
 
         internal async static Task DeleteUser(WebSocketHandler webSocketHandler)
         {
-            Command resonseCommand = ModifyUser(() => BesteUser.DeleteUser(webSocketHandler.ReceivedCommand.CommandData.ToString()),
+            Command resonseCommand = await ModifyUser(async () =>
+                {
+                    return await BesteUser.DeleteUser(webSocketHandler.ReceivedCommand.CommandData.ToString());
+                },
                 "DeleteUser",
                 webSocketHandler);
             await webSocketHandler.Send(resonseCommand);
@@ -115,23 +123,26 @@ namespace Beste.GameServer.SDaysTDie.Modules
 
         internal async static Task EditUser(WebSocketHandler webSocketHandler)
         {
-            Command resonseCommand = ModifyUser(() => BesteUser.EditUser(webSocketHandler.ReceivedCommand.CommandData.ToString()),
+            Command resonseCommand = await ModifyUser(async () =>
+                {
+                    return await BesteUser.EditUser(webSocketHandler.ReceivedCommand.CommandData.ToString());
+                },
                 "EditUser",
                 webSocketHandler);
             await webSocketHandler.Send(resonseCommand);
         }
 
-        private static Command ModifyUser(Func<ModifyUserResponse> modifyAction, string actionName, WebSocketHandler webSocketHandler)
+        private static async Task<Command> ModifyUser(Func<Task<ModifyUserResponse>> modifyAction, string actionName, WebSocketHandler webSocketHandler)
         {
             User user = JsonConvert.DeserializeObject<User>(webSocketHandler.ReceivedCommand.CommandData.ToString());
             ModifyUserResponse response = null;
             if (RightControl.IsGranted(webSocketHandler.ConnectedUserToken, actionName, "User"))
             {
-                response = modifyAction();
+                response = await modifyAction();
             }
             else if(RightControl.IsGranted(webSocketHandler.ConnectedUserToken, actionName + "_" + user.Username, "User"))
             {
-                response = modifyAction();
+                response = await modifyAction();
             }
             else
             {
@@ -140,17 +151,17 @@ namespace Beste.GameServer.SDaysTDie.Modules
             return new Command(actionName + "Response", response);
         }
 
-        private static Command GetUsers(Func<GetUsersResponse> getAction, string actionName, WebSocketHandler webSocketHandler)
+        private static async Task<Command> GetUsers(Func<Task<GetUsersResponse>> getAction, string actionName, WebSocketHandler webSocketHandler)
         {
             User user = JsonConvert.DeserializeObject<User>(webSocketHandler.ReceivedCommand.CommandData.ToString());
             GetUsersResponse response = null;
             if (RightControl.IsGranted(webSocketHandler.ConnectedUserToken, actionName, "User"))
             {
-                response = getAction();
+                response = await getAction();
             }
             else if (RightControl.IsGranted(webSocketHandler.ConnectedUserToken, actionName + "_" + user.Username, "User"))
             {
-                response = getAction();
+                response = await getAction();
             }
             else
             {
@@ -161,14 +172,20 @@ namespace Beste.GameServer.SDaysTDie.Modules
 
         internal async static Task GetUsers(WebSocketHandler webSocketHandler)
         {
-            Command resonseCommand = GetUsers(() => BesteUser.GetUsers(webSocketHandler.ReceivedCommand.CommandData.ToString()),
+            Command resonseCommand = await GetUsers(async () =>
+            {
+                return await BesteUser.GetUsers(webSocketHandler.ReceivedCommand.CommandData.ToString());
+            },
                 "GetUsers",
                 webSocketHandler);
             await webSocketHandler.Send(resonseCommand);
         }
         internal async static Task GetUser(WebSocketHandler webSocketHandler)
         {
-            Command resonseCommand = GetUsers(() => BesteUser.GetUser(webSocketHandler.ReceivedCommand.CommandData.ToString()),
+            Command resonseCommand = await GetUsers(async () =>
+            {
+                return await BesteUser.GetUser(webSocketHandler.ReceivedCommand.CommandData.ToString());
+            },
                 "GetUser",
                 webSocketHandler);
             await webSocketHandler.Send(resonseCommand);

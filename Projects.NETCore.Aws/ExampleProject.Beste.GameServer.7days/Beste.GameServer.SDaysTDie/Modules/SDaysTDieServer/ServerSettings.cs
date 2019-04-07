@@ -4,6 +4,8 @@ using System.Text;
 
 namespace Beste.GameServer.SDaysTDie.Modules
 {
+    using Amazon.DynamoDBv2.DataModel;
+    using Amazon.DynamoDBv2.Model;
     using Beste.Databases.User;
     using Beste.GameServer.SDaysTDie.Modules.Types;
     using FluentNHibernate.Mapping;
@@ -154,7 +156,7 @@ namespace Beste.GameServer.SDaysTDie.Modules
         [XmlIgnore]
         public int Id { get; set; }
         [XmlIgnore]
-        public User User { get; set; }
+        public string UserUuid { get; set; }
         #endregion
         #region "Extracting of the Property from stacktrace"
 
@@ -203,10 +205,10 @@ namespace Beste.GameServer.SDaysTDie.Modules
             TelnetPort = source.TelnetPort;
             TelnetPassword = source.TelnetPassword;
             TerminalWindowEnabled = source.TerminalWindowEnabled;
-            GameWorld = source.GameWorld;
+            GameWorld = (GameWorld)Enum.Parse(typeof(GameWorld), source.GameWorld);
             WorldGenSeed = source.WorldGenSeed;
             GameName = source.GameName;
-            User =  source.User;
+            UserUuid =  source.UserUuid;
         }
     }
 
@@ -222,28 +224,7 @@ namespace Beste.GameServer.SDaysTDie.Modules
         
     }
 
-    public class ServerSettingMap : ClassMap<ServerSetting>
-    {
-        public ServerSettingMap()
-        {
-            Table("server_setting");
-            LazyLoad();
-            Id(x => x.Id).GeneratedBy.Identity().Column("id");
-            References(x => x.User).Column("fk_user_id");
-            Map(x => x.ServerConfigFilepath).Column("server_config_filepath").Not.Nullable();
-            Map(x => x.ServerName).Column("server_name").Not.Nullable();
-            Map(x => x.ServerDescription).Column("server_description").Not.Nullable();
-            Map(x => x.ServerPassword).Column("server_password").Not.Nullable();
-            Map(x => x.ServerPort).Column("server_port").Not.Nullable();
-            Map(x => x.TelnetPort).Column("telnet_port").Not.Nullable();
-            Map(x => x.TelnetPassword).Column("telnet_password").Not.Nullable();
-            Map(x => x.TerminalWindowEnabled).Column("terminal_window_enabled").Not.Nullable();
-            Map(x => x.GameWorld).Column("game_world").Not.Nullable();
-            Map(x => x.WorldGenSeed).Column("world_gen_seed").Not.Nullable();
-            Map(x => x.GameName).Column("game_name").Not.Nullable();
-        }
-    }
-
+    [DynamoDBTable(TableName)]
     public class ServerSetting
     {
         public virtual string ServerConfigFilepath { get; set; }
@@ -259,14 +240,19 @@ namespace Beste.GameServer.SDaysTDie.Modules
         public virtual int TelnetPort { get; set; }
         public virtual string TelnetPassword { get; set; }
         public virtual bool TerminalWindowEnabled { get; set; }
-        public virtual GameWorld GameWorld { get; set; }
+        public virtual string GameWorld { get; set; }
         public virtual string WorldGenSeed { get; set; }
         public virtual string GameName { get; set; }
         #endregion
 
         #region "DataBase only fields"
+        [DynamoDBIgnore]
+        public const string TableName = "server_setting";
+        [DynamoDBProperty]
+        public virtual int TableId { get; set; }
+        [DynamoDBRangeKey]
         public virtual int Id { get; set; }
-        public virtual User User { get; set; }
+        public virtual string UserUuid { get; set; }
         #endregion
         public virtual void CopyAllButId(ServerSetting target)
         {
@@ -280,7 +266,49 @@ namespace Beste.GameServer.SDaysTDie.Modules
             target.GameWorld = GameWorld;
             target.WorldGenSeed = WorldGenSeed;
             target.GameName = GameName;
-            target.User = User;
+            target.UserUuid = UserUuid;
+        }
+        public static ServerSetting FromDynamoDbDictionary(Dictionary<string, AttributeValue> dynamoDbDictionary )
+        {
+            return new ServerSetting
+            {
+                Id = dynamoDbDictionary.ContainsKey("Id") ?
+                    Convert.ToInt32(dynamoDbDictionary["Id"].N) :
+                    0,
+                ServerName = dynamoDbDictionary.ContainsKey("ServerName") ? 
+                    dynamoDbDictionary["ServerName"].S :
+                    "",
+                ServerDescription = dynamoDbDictionary.ContainsKey("ServerDescription") ? 
+                    dynamoDbDictionary["ServerDescription"].S :
+                    "",
+                ServerPassword = dynamoDbDictionary.ContainsKey("ServerPassword") ? 
+                    dynamoDbDictionary["ServerPassword"].S :
+                    "",
+                ServerPort = dynamoDbDictionary.ContainsKey("ServerPort") ? 
+                    Convert.ToInt32(dynamoDbDictionary["ServerPort"].N) :
+                    0,
+                TelnetPort = dynamoDbDictionary.ContainsKey("TelnetPort") ? 
+                    Convert.ToInt32(dynamoDbDictionary["TelnetPort"].N) :
+                    0,
+                TelnetPassword = dynamoDbDictionary.ContainsKey("TelnetPassword") ? 
+                    dynamoDbDictionary["TelnetPassword"].S :
+                    "",
+                TerminalWindowEnabled = dynamoDbDictionary.ContainsKey("TerminalWindowEnabled") ? 
+                    dynamoDbDictionary["TerminalWindowEnabled"].BOOL :
+                    false,
+                GameWorld = dynamoDbDictionary.ContainsKey("GameWorld") ? 
+                    dynamoDbDictionary["GameWorld"].S :
+                    "",
+                WorldGenSeed = dynamoDbDictionary.ContainsKey("WorldGenSeed") ? 
+                    dynamoDbDictionary["WorldGenSeed"].S :
+                    "",
+                GameName = dynamoDbDictionary.ContainsKey("GameName") ? 
+                    dynamoDbDictionary["GameName"].S :
+                    "",
+                UserUuid = dynamoDbDictionary.ContainsKey("UserUuid") ? 
+                    dynamoDbDictionary["UserUuid"].S :
+                    "",
+            };
         }
     }
 }

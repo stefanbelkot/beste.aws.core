@@ -1,4 +1,8 @@
-﻿using Beste.Core.Models;
+﻿using Amazon.DynamoDBv2;
+using Amazon.DynamoDBv2.Model;
+using Beste.Aws.Databases.Connector;
+using Beste.Aws.Module;
+using Beste.Core.Models;
 using Beste.Databases.Connector;
 using Beste.Databases.User;
 using Beste.GameServer.SDaysTDie.Connections;
@@ -23,13 +27,9 @@ namespace Testproject
 {
     internal static class TestHelper
     {
-        static Beste.Module.BesteUser BesteUser { get; set; } = new Beste.Module.BesteUser();
-        static readonly Assembly[] Assemblies =
-        {
-                Assembly.GetAssembly(typeof(User)),
-                Assembly.GetAssembly(typeof(BesteRightsDefinition)),
-                Assembly.GetAssembly(typeof(ServerSetting))
-        };
+        public static int TABLE_ID = 1;
+        static Beste.Aws.Module.BesteUser BesteUser { get; set; } = new Beste.Aws.Module.BesteUser();
+
         private static Random random = new Random();
         public static string RandomString(int length)
         {
@@ -108,7 +108,7 @@ namespace Testproject
             ServerSetting serverSettings = new ServerSetting
             {
                 GameName = "MyGame",
-                GameWorld = Beste.GameServer.SDaysTDie.Modules.Types.GameWorld.RWG,
+                GameWorld = Beste.GameServer.SDaysTDie.Modules.Types.GameWorld.RWG.ToString(),
                 ServerConfigFilepath = "MyGameConfigFilePath" + TestHelper.RandomString(8) + ".xml",
                 ServerDescription = "My Server Desc",
                 ServerName = "MyServer Name",
@@ -121,17 +121,13 @@ namespace Testproject
             };
             return serverSettings;
         }
-        public static void CreateInitialUsersAndRights()
+        public static async Task CreateInitialUsersAndRights()
         {
-            using (ISession s = SessionFactory.GetSession())
-            {
-                s.Delete("from ServerSetting s");
-                s.Delete("from User o");
-                s.Delete("from BesteRightsAuthorization a");
-                s.Delete("from BesteRightsDefinition a");
-                s.Flush();
-            }
-            User user = new User
+            await CleanUpBesteRightsAuthorization();
+            await CleanUpBesteUser();
+            await CleanUpServerSettings();
+
+            User adminUser = new User
             {
                 Username = "Admin",
                 Lastname = "Admin",
@@ -139,10 +135,10 @@ namespace Testproject
                 Email = "Email",
                 Password = "Passwort1$"
             };
-            ModifyUserResponse response = BesteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            ModifyUserResponse response = await BesteUser.CreateUser(JsonConvert.SerializeObject(adminUser, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             TestHelper.ValiateResponse(response, ModifyUserResult.SUCCESS);
 
-            user = new User
+            User user = new User
             {
                 Username = "User",
                 Lastname = "User",
@@ -150,7 +146,7 @@ namespace Testproject
                 Email = "Email",
                 Password = "Passwort1$"
             };
-            response = BesteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            response = await BesteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             TestHelper.ValiateResponse(response, ModifyUserResult.SUCCESS);
 
             user = new User
@@ -161,211 +157,207 @@ namespace Testproject
                 Email = "Email",
                 Password = "Passwort1$"
             };
-            response = BesteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+            response = await BesteUser.CreateUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
             TestHelper.ValiateResponse(response, ModifyUserResult.SUCCESS);
 
-            using (NHibernate.ISession session = SessionFactory.GetSession())
-            using (ITransaction transaction = session.BeginTransaction())
-            {
-                user = session.QueryOver<User>()
-                    .Where(u => u.Username == "Admin")
-                    .SingleOrDefault();
-            }
 
-            using (ISession s = SessionFactory.GetSession())
-            {
-                s.Delete("from BesteRightsAuthorization o");
-                s.Delete("from BesteRightsDefinition p");
-                s.Delete("from BesteRightsNamespace l");
-                s.Flush();
-            }
-            using (NHibernate.IStatelessSession session = SessionFactory.GetStatelessSession())
-            using (ITransaction transaction = session.BeginTransaction())
-            {
-                BesteRightsNamespace besteRightsNamespace = new BesteRightsNamespace();
-                besteRightsNamespace.Name = "Beste.GameServer.SDaysTDie.User";
-                session.Insert(besteRightsNamespace);
 
-                List<BesteRightsDefinition> besteRightsDefinitions = new List<BesteRightsDefinition>();
+            adminUser = await AmazonDynamoDBFactory.ExecuteInTransactionContext(async (client, context) =>
+            {
+                adminUser.TableId = TABLE_ID;
+                return await context.LoadAsync(adminUser);
+            });
 
-                BesteRightsDefinition besteRightsDefinitionChangePasswordByUser = new BesteRightsDefinition
+            await AmazonDynamoDBFactory.ExecuteInTransactionContext(async (client, context) =>
+            {
+                await context.SaveAsync(new BesteRightsAuthorization
                 {
-                    BesteRightsNamespace = besteRightsNamespace,
+                    TableId = TABLE_ID,
+                    Namespace = "Beste.GameServer.SDaysTDie.User",
                     Operation = "ChangePassword",
-                    RecourceModule = "User"
-                };
-                besteRightsDefinitions.Add(besteRightsDefinitionChangePasswordByUser);
-
-                BesteRightsDefinition besteRightsDefinitionCreateUser = new BesteRightsDefinition
+                    RecourceModule = "User",
+                    RecourceId = null,
+                    Authorized = true,
+                    LegitimationUuid = adminUser.Uuid,
+                    Uuid = Guid.NewGuid().ToString()
+                });
+                await context.SaveAsync(new BesteRightsAuthorization
                 {
-                    BesteRightsNamespace = besteRightsNamespace,
+                    TableId = TABLE_ID,
+                    Namespace = "Beste.GameServer.SDaysTDie.User",
                     Operation = "CreateUser",
-                    RecourceModule = "User"
-                };
-                besteRightsDefinitions.Add(besteRightsDefinitionCreateUser);
-
-                BesteRightsDefinition besteRightsDefinitionDeleteUser = new BesteRightsDefinition
+                    RecourceModule = "User",
+                    RecourceId = null,
+                    Authorized = true,
+                    LegitimationUuid = adminUser.Uuid,
+                    Uuid = Guid.NewGuid().ToString()
+                });
+                await context.SaveAsync(new BesteRightsAuthorization
                 {
-                    BesteRightsNamespace = besteRightsNamespace,
+                    TableId = TABLE_ID,
+                    Namespace = "Beste.GameServer.SDaysTDie.User",
                     Operation = "DeleteUser",
-                    RecourceModule = "User"
-                };
-                besteRightsDefinitions.Add(besteRightsDefinitionDeleteUser);
-
-                BesteRightsDefinition besteRightsDefinitionEditUser = new BesteRightsDefinition
+                    RecourceModule = "User",
+                    RecourceId = null,
+                    Authorized = true,
+                    LegitimationUuid = adminUser.Uuid,
+                    Uuid = Guid.NewGuid().ToString()
+                });
+                await context.SaveAsync(new BesteRightsAuthorization
                 {
-                    BesteRightsNamespace = besteRightsNamespace,
+                    TableId = TABLE_ID,
+                    Namespace = "Beste.GameServer.SDaysTDie.User",
                     Operation = "EditUser",
-                    RecourceModule = "User"
-                };
-                besteRightsDefinitions.Add(besteRightsDefinitionEditUser);
-
-                BesteRightsDefinition besteRightsDefinitionGetUsers = new BesteRightsDefinition
+                    RecourceModule = "User",
+                    RecourceId = null,
+                    Authorized = true,
+                    LegitimationUuid = adminUser.Uuid,
+                    Uuid = Guid.NewGuid().ToString()
+                });
+                await context.SaveAsync(new BesteRightsAuthorization
                 {
-                    BesteRightsNamespace = besteRightsNamespace,
+                    TableId = TABLE_ID,
+                    Namespace = "Beste.GameServer.SDaysTDie.User",
                     Operation = "GetUsers",
-                    RecourceModule = "User"
-                };
-                besteRightsDefinitions.Add(besteRightsDefinitionGetUsers);
-
-                BesteRightsDefinition besteRightsDefinitionGetUser = new BesteRightsDefinition
+                    RecourceModule = "User",
+                    RecourceId = null,
+                    Authorized = true,
+                    LegitimationUuid = adminUser.Uuid,
+                    Uuid = Guid.NewGuid().ToString()
+                });
+                await context.SaveAsync(new BesteRightsAuthorization
                 {
-                    BesteRightsNamespace = besteRightsNamespace,
+                    TableId = TABLE_ID,
+                    Namespace = "Beste.GameServer.SDaysTDie.User",
                     Operation = "GetUser",
-                    RecourceModule = "User"
+                    RecourceModule = "User",
+                    RecourceId = null,
+                    Authorized = true,
+                    LegitimationUuid = adminUser.Uuid,
+                    Uuid = Guid.NewGuid().ToString()
+                });
+            });
+        }
+
+        private static async Task CleanUpBesteRightsAuthorization()
+        {
+            var request = new QueryRequest
+            {
+                TableName = BesteRightsAuthorization.TableName,
+                KeyConditions = new Dictionary<string, Condition>
+                    {
+                        { "TableId", new Condition()
+                            {
+                                ComparisonOperator = ComparisonOperator.EQ,
+                                AttributeValueList = new List<AttributeValue>
+                                {
+                                  new AttributeValue { N = TABLE_ID.ToString() }
+                                }
+
+                            }
+                        }
+                    },
+                //AttributesToGet = new List<string> { "user_id" }
+            };
+            var response = await AmazonDynamoDBFactory.Client.QueryAsync(request);
+            foreach (var item in response.Items)
+            {
+                BesteRightsAuthorization auth = new BesteRightsAuthorization()
+                {
+                    TableId = TABLE_ID,
+                    Uuid = item["Uuid"].S
                 };
-                besteRightsDefinitions.Add(besteRightsDefinitionGetUser);
+                await AmazonDynamoDBFactory.Context.DeleteAsync(auth);
+            }
+        }
+        private static async Task CleanUpBesteUser()
+        {
+            var request = new QueryRequest
+            {
+                TableName = User.TableName,
+                KeyConditions = new Dictionary<string, Condition>
+                    {
+                        { "id", new Condition()
+                            {
+                                ComparisonOperator = ComparisonOperator.EQ,
+                                AttributeValueList = new List<AttributeValue>
+                                {
+                                  new AttributeValue { N = TABLE_ID.ToString() }
+                                }
 
-                foreach (BesteRightsDefinition item in besteRightsDefinitions)
+                            }
+                        }
+                    },
+                //AttributesToGet = new List<string> { "user_id" }
+            };
+            var response = await AmazonDynamoDBFactory.Client.QueryAsync(request);
+            foreach (var item in response.Items)
+            {
+                User user = new User()
                 {
-                    session.Insert(item);
-                }
+                    TableId = TABLE_ID,
+                    Username = item["username"].S
+                };
+                await AmazonDynamoDBFactory.Context.DeleteAsync(user);
+            }
+        }
+        private static async Task CleanUpServerSettings()
+        {
+            var request = new QueryRequest
+            {
+                TableName = ServerSetting.TableName,
+                KeyConditions = new Dictionary<string, Condition>
+                    {
+                        { "TableId", new Condition()
+                            {
+                                ComparisonOperator = ComparisonOperator.EQ,
+                                AttributeValueList = new List<AttributeValue>
+                                {
+                                  new AttributeValue { N = TABLE_ID.ToString() }
+                                }
 
-                List<BesteRightsAuthorization> besteRightsAuthorizations = new List<BesteRightsAuthorization>();
-                besteRightsAuthorizations.Add(new BesteRightsAuthorization
+                            }
+                        }
+                    },
+                //AttributesToGet = new List<string> { "user_id" }
+            };
+            var response = await AmazonDynamoDBFactory.Client.QueryAsync(request);
+            foreach (var item in response.Items)
+            {
+                ServerSetting serverSetting = new ServerSetting()
                 {
-                    Authorized = true,
-                    LegitimationId = user.UserId,
-                    BesteRightsDefinition = besteRightsDefinitionChangePasswordByUser
-                });
-                besteRightsAuthorizations.Add(new BesteRightsAuthorization
-                {
-                    Authorized = true,
-                    LegitimationId = user.UserId,
-                    BesteRightsDefinition = besteRightsDefinitionCreateUser
-                });
-                besteRightsAuthorizations.Add(new BesteRightsAuthorization
-                {
-                    Authorized = true,
-                    LegitimationId = user.UserId,
-                    BesteRightsDefinition = besteRightsDefinitionDeleteUser
-                });
-                besteRightsAuthorizations.Add(new BesteRightsAuthorization
-                {
-                    Authorized = true,
-                    LegitimationId = user.UserId,
-                    BesteRightsDefinition = besteRightsDefinitionEditUser
-                });
-                besteRightsAuthorizations.Add(new BesteRightsAuthorization
-                {
-                    Authorized = true,
-                    LegitimationId = user.UserId,
-                    BesteRightsDefinition = besteRightsDefinitionGetUsers
-                });
-                besteRightsAuthorizations.Add(new BesteRightsAuthorization
-                {
-                    Authorized = true,
-                    LegitimationId = user.UserId,
-                    BesteRightsDefinition = besteRightsDefinitionGetUser
-                });
-
-                foreach (BesteRightsAuthorization item in besteRightsAuthorizations)
-                {
-                    session.Insert(item);
-                }
-                transaction.Commit();
+                    TableId = TABLE_ID,
+                    Id = Convert.ToInt32( item["Id"].N)
+                };
+                await AmazonDynamoDBFactory.Context.DeleteAsync(serverSetting);
             }
         }
 
-
-
-        internal static void CreateInitialSettingsAndRights()
+        internal static async Task CreateInitialSettingsAndRights()
         {
-            using (NHibernate.IStatelessSession session = SessionFactory.GetStatelessSession())
-            using (ITransaction transaction = session.BeginTransaction())
+            User adminUser = new User
             {
-                BesteRightsNamespace besteRightsNamespace = new BesteRightsNamespace();
-                besteRightsNamespace.Name = "Beste.GameServer.SDaysTDie.ServerSettings";
-                session.Insert(besteRightsNamespace);
-
-
-                User user = session.QueryOver<User>()
-                    .Where(u => u.Username == "Admin")
-                    .SingleOrDefault();
-
-                List<BesteRightsDefinition> besteRightsDefinitions = new List<BesteRightsDefinition>();
-
-                BesteRightsDefinition besteRightsDefinitionEdit = new BesteRightsDefinition
+                TableId = TABLE_ID,
+                Username = "Admin"
+            };
+            adminUser = await AmazonDynamoDBFactory.ExecuteInTransactionContext(async (client, context) =>
+            {
+                return await context.LoadAsync(adminUser);
+            });
+            await AmazonDynamoDBFactory.ExecuteInTransactionContext(async (client, context) =>
+            {
+                await context.SaveAsync(new BesteRightsAuthorization
                 {
-                    BesteRightsNamespace = besteRightsNamespace,
+                    TableId = TABLE_ID,
+                    Namespace = "Beste.GameServer.SDaysTDie.ServerSettings",
                     Operation = "Edit",
-                    RecourceModule = "ServerSetting"
-                };
-                besteRightsDefinitions.Add(besteRightsDefinitionEdit);
-                
-                foreach (BesteRightsDefinition item in besteRightsDefinitions)
-                {
-                    session.Insert(item);
-                }
-
-                List<BesteRightsAuthorization> besteRightsAuthorizations = new List<BesteRightsAuthorization>();
-                besteRightsAuthorizations.Add(new BesteRightsAuthorization
-                {
+                    RecourceModule = "ServerSetting",
+                    RecourceId = null,
                     Authorized = true,
-                    LegitimationId = user.UserId,
-                    BesteRightsDefinition = besteRightsDefinitionEdit
+                    LegitimationUuid = adminUser.Uuid,
+                    Uuid = Guid.NewGuid().ToString()
                 });
-
-                foreach (BesteRightsAuthorization item in besteRightsAuthorizations)
-                {
-                    session.Insert(item);
-                }
-
-                transaction.Commit();
-            }
-        }
-        internal static void ActivateTestSchema(bool regenerateSchema = false)
-        {
-            SessionFactory.Assemblies = Assemblies;
-            SessionFactory.ResetFactory();
-            SessionFactory.Assemblies = Assemblies;
-            string pathToConfig = "Resources" + Path.DirectorySeparatorChar;
-            DbSettings dbSettings = DbSettings.LoadFromFile<DbSettings>(pathToConfig + "DBConnectionSettings.xml");
-            dbSettings.DbSchema = "beste_test";
-            dbSettings.SaveToFile(pathToConfig + "DBConnectionSettings_test.xml");
-            SessionFactory.SettingsPath = pathToConfig + "DBConnectionSettings_test.xml";
-            if (regenerateSchema)
-            {
-                SessionFactory.GenerateTables();
-            }
-
-            // try to connect (check if table available)
-            try
-            {
-                using (NHibernate.ISession session = SessionFactory.GetSession())
-                using (ITransaction transaction = session.BeginTransaction())
-                {
-                    var users = session.QueryOver<User>();
-                    var rights = session.QueryOver<BesteRightsAuthorization>();
-                    var serverSettings = session.QueryOver<ServerSetting>();
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.ToString());
-                // try to generate tables if connection failed
-                SessionFactory.GenerateTables();
-            }
+            });
         }
 
         internal static void ValiateResponse<T, T2>(T2 response, T expectedResult) 

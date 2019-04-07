@@ -57,13 +57,9 @@ namespace Testproject
                     .Build();
                 host.Run();
             });
-            TestHelper.ActivateTestSchema();
-
-            var t2 = Task.Run(() =>
-            {
-                TestHelper.CreateInitialUsersAndRights();
-                TestHelper.CreateInitialSettingsAndRights();
-            });
+            
+            await TestHelper.CreateInitialUsersAndRights();
+            await TestHelper.CreateInitialSettingsAndRights();
             await Task.Delay(3000);
         }
 
@@ -86,15 +82,17 @@ namespace Testproject
             await TestHelper.ExecuteCommandAndAwaitResponse(webSocket, webSocketHandler, command);
             GetSettingsResponse getResponse = JsonConvert.DeserializeObject<GetSettingsResponse>(webSocketHandler.ReceivedCommand.CommandData.ToString());
             TestHelper.ValiateResponse(getResponse, GetSettingsResult.OK);
-            
+
+            bool foundServerSetting = false;
             foreach(var item in getResponse.ServerSettings)
             {
                 if(serverSettings.WorldGenSeed == item.WorldGenSeed)
                 {
                     serverSettings = item;
+                    foundServerSetting = true;
                 }
             }
-            if (serverSettings.Id <= 0)
+            if (!foundServerSetting)
                 Assert.Fail("Added ServerSettingsId not found in response");
 
             command = new Command("StartServer", serverSettings);
@@ -129,15 +127,17 @@ namespace Testproject
             GetSettingsResponse getResponse = JsonConvert.DeserializeObject<GetSettingsResponse>(webSocketHandler.ReceivedCommand.CommandData.ToString());
             TestHelper.ValiateResponse(getResponse, GetSettingsResult.OK);
 
+            bool foundServerSetting = false;
             foreach (var item in getResponse.ServerSettings)
             {
                 if (serverSettings.WorldGenSeed == item.WorldGenSeed)
                 {
                     serverSettings = item;
+                    foundServerSetting = true;
                     break;
                 }
             }
-            if (serverSettings.Id <= 0)
+            if (!foundServerSetting)
                 Assert.Fail("Added ServerSettingsId not found in response");
 
             command = new Command("StartServer", serverSettings);
@@ -199,18 +199,22 @@ namespace Testproject
             GetSettingsResponse getResponse = JsonConvert.DeserializeObject<GetSettingsResponse>(webSocketHandler.ReceivedCommand.CommandData.ToString());
             TestHelper.ValiateResponse(getResponse, GetSettingsResult.OK);
 
+            bool foundServerSettingOne = false;
+            bool foundServerSettingTwo = false;
             foreach (var item in getResponse.ServerSettings)
             {
                 if (serverSettingsOneOfUserOne.WorldGenSeed == item.WorldGenSeed)
                 {
                     serverSettingsOneOfUserOne = item;
+                    foundServerSettingOne = true;
                 }
                 if (serverSettingsTwoOfUserOne.WorldGenSeed == item.WorldGenSeed)
                 {
                     serverSettingsTwoOfUserOne = item;
+                    foundServerSettingTwo = true;
                 }
             }
-            if (serverSettingsOneOfUserOne.Id <= 0 || serverSettingsTwoOfUserOne.Id <= 0)
+            if (!foundServerSettingOne || !foundServerSettingTwo)
                 Assert.Fail("Added ServerSettingsId not found in response");
 
             command = new Command("StartServer", serverSettingsOneOfUserOne);
@@ -243,7 +247,7 @@ namespace Testproject
             ServerSetting serverSettingOne = new ServerSetting
             {
                 GameName = "MyGameStartTwoServesOne",
-                GameWorld = Beste.GameServer.SDaysTDie.Modules.Types.GameWorld.Navezgane,
+                GameWorld = Beste.GameServer.SDaysTDie.Modules.Types.GameWorld.Navezgane.ToString(),
                 ServerConfigFilepath = "MyGameConfigFilePath" + TestHelper.RandomString(8) + ".xml",
                 ServerDescription = "My Server Desc",
                 ServerName = "MyServerStartTwoServesOne",
@@ -265,15 +269,17 @@ namespace Testproject
             GetSettingsResponse getResponse = JsonConvert.DeserializeObject<GetSettingsResponse>(webSocketHandler.ReceivedCommand.CommandData.ToString());
             TestHelper.ValiateResponse(getResponse, GetSettingsResult.OK);
 
+            bool foundServerSetting = false;
             foreach (var item in getResponse.ServerSettings)
             {
                 if (serverSettingOne.WorldGenSeed == item.WorldGenSeed)
                 {
                     serverSettingOne = item;
+                    foundServerSetting = true;
                     break;
                 }
             }
-            if (serverSettingOne.Id <= 0)
+            if (!foundServerSetting)
                 Assert.Fail("Added ServerSettingsId not found in response");
 
 
@@ -291,7 +297,7 @@ namespace Testproject
             ServerSetting serverSettingTwo = new ServerSetting
             {
                 GameName = "MyGameStartTwoServesTwo",
-                GameWorld = Beste.GameServer.SDaysTDie.Modules.Types.GameWorld.Navezgane,
+                GameWorld = Beste.GameServer.SDaysTDie.Modules.Types.GameWorld.Navezgane.ToString(),
                 ServerConfigFilepath = "MyGameConfigFilePath" + TestHelper.RandomString(8) + ".xml",
                 ServerDescription = "My Server Desc",
                 ServerName = "MyServerNameStartTwoServesTwo",
@@ -313,15 +319,17 @@ namespace Testproject
             getResponse = JsonConvert.DeserializeObject<GetSettingsResponse>(webSocketHandlerTwo.ReceivedCommand.CommandData.ToString());
             TestHelper.ValiateResponse(getResponse, GetSettingsResult.OK);
 
+            foundServerSetting = false;
             foreach (var item in getResponse.ServerSettings)
             {
                 if (serverSettingTwo.WorldGenSeed == item.WorldGenSeed)
                 {
                     serverSettingTwo = item;
+                    foundServerSetting = true;
                     break;
                 }
             }
-            if (serverSettingTwo.Id <= 0)
+            if (!foundServerSetting)
                 Assert.Fail("Added ServerSettingsId not found in response");
 
 

@@ -1,4 +1,8 @@
-﻿using Beste.Core.Models;
+﻿using Amazon.DynamoDBv2;
+using Amazon.DynamoDBv2.Model;
+using Beste.Aws.Databases.Connector;
+using Beste.Aws.Module;
+using Beste.Core.Models;
 using Beste.Databases.Connector;
 using Beste.Databases.User;
 using Beste.GameServer.SDaysTDie.Connections;
@@ -54,10 +58,12 @@ namespace Beste.GameServer.SDaysTDie.Modules
     }
     class ServerSettingsHandler
     {
-
+        Random random = new Random();
+        static Beste.Aws.Module.BesteUser BesteUser { get; set; } = new Beste.Aws.Module.BesteUser();
+        public static int TABLE_ID = 1;
         public static RightControl RightControl { get; set; } = new RightControl("Beste.GameServer.SDaysTDie.ServerSettings");
 
-        internal static void RegisterUser(User user, string token)
+        internal static async Task RegisterUser(User user, string token)
         {
             List<PureRight> pureRights = new List<PureRight>();
             pureRights.Add(new PureRight
@@ -74,17 +80,17 @@ namespace Beste.GameServer.SDaysTDie.Modules
             });
 
             
-            RightControl.Register(user.UserId, pureRights, token);
+            await RightControl.Register(user.Uuid, pureRights, token);
         }
 
 
 
         internal async static Task AddServerSettings(WebSocketHandler webSocketHandler)
         {
-            Command resonseCommand = ModifyServerSettings(() => 
-                {
+            Command resonseCommand = await ModifyServerSettings(async () =>
+            {
                     ServerSetting serverSettings = JsonConvert.DeserializeObject<ServerSetting>(webSocketHandler.ReceivedCommand.CommandData.ToString());
-                    return AddServerSetting(serverSettings, webSocketHandler.User, webSocketHandler.ConnectedUserToken);
+                    return await AddServerSetting(serverSettings, webSocketHandler.User, webSocketHandler.ConnectedUserToken);
                 },
                 "AddServerSettings",
                 webSocketHandler);
@@ -92,10 +98,10 @@ namespace Beste.GameServer.SDaysTDie.Modules
         }
         internal async static Task EditServerSettings(WebSocketHandler webSocketHandler)
         {
-            Command resonseCommand = ModifyServerSettings(() =>
+            Command resonseCommand = await ModifyServerSettings(async () =>
             {
                 ServerSetting serverSettings = JsonConvert.DeserializeObject<ServerSetting>(webSocketHandler.ReceivedCommand.CommandData.ToString());
-                return EditServerSetting(serverSettings, webSocketHandler.User, webSocketHandler.ConnectedUserToken);
+                return await EditServerSetting(serverSettings, webSocketHandler.User, webSocketHandler.ConnectedUserToken);
             },
                 "EditServerSettings",
                 webSocketHandler,
@@ -104,10 +110,10 @@ namespace Beste.GameServer.SDaysTDie.Modules
         }
         internal async static Task DeleteServerSettings(WebSocketHandler webSocketHandler)
         {
-            Command resonseCommand = ModifyServerSettings(() =>
+            Command resonseCommand = await ModifyServerSettings(async () =>
             {
                 ServerSetting serverSettings = JsonConvert.DeserializeObject<ServerSetting>(webSocketHandler.ReceivedCommand.CommandData.ToString());
-                return DeleteServerSetting(serverSettings, webSocketHandler.User, webSocketHandler.ConnectedUserToken);
+                return await DeleteServerSetting(serverSettings, webSocketHandler.User, webSocketHandler.ConnectedUserToken);
             },
                 "DeleteServerSettings",
                 webSocketHandler,
@@ -116,16 +122,16 @@ namespace Beste.GameServer.SDaysTDie.Modules
         }
 
 
-        private static Command ModifyServerSettings(Func<ModifySettingsResponse> modifyAction, string actionName, WebSocketHandler webSocketHandler, int? ressourceId = null)
+        private static async Task<Command> ModifyServerSettings(Func<Task<ModifySettingsResponse>> modifyAction, string actionName, WebSocketHandler webSocketHandler, int? ressourceId = null)
         {
             ModifySettingsResponse response = null;
             if (RightControl.IsGranted(webSocketHandler.ConnectedUserToken, actionName, "ServerSetting", ressourceId))
             {
-                response = modifyAction();
+                response = await modifyAction();
             }
             else if (RightControl.IsGranted(webSocketHandler.ConnectedUserToken, actionName + "_" + webSocketHandler.User.Username, "ServerSetting"))
             {
-                response = modifyAction();
+                response = await modifyAction();
             }
             else
             {
@@ -134,37 +140,34 @@ namespace Beste.GameServer.SDaysTDie.Modules
             return new Command(actionName + "Response", response);
         }
 
-        private static ModifySettingsResponse AddServerSetting(ServerSetting serverSettings, User user, string token)
+        private static async Task<ModifySettingsResponse> AddServerSetting(ServerSetting serverSettings, User user, string token)
         {
-            using (NHibernate.IStatelessSession session = SessionFactory.GetStatelessSession())
-            using (ITransaction transaction = session.BeginTransaction())
+            return await AmazonDynamoDBFactory.ExecuteInTransactionContext(async (client, context) =>
             {
                 try
                 {
-                    if (session.QueryOver<ServerSetting>()
-                        .Where(p => p.WorldGenSeed == serverSettings.WorldGenSeed)
-                        .SingleOrDefault() != null)
+                    QueryResponse response = await GetServerSettingBySpecificProperty("WorldGenSeed", serverSettings.WorldGenSeed);
+                    if (response.Items.Count > 0)
                     {
                         return new ModifySettingsResponse(ModifySettingsResult.GAME_SEED_ALREADY_EXISTS);
                     }
-                    User dbUser = session.QueryOver<User>()
-                        .Where(p => p.Username == user.Username)
-                        .SingleOrDefault();
-                    if (dbUser == null)
+                    GetUsersResponse getUsersResponse = await BesteUser.GetUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+                    if (getUsersResponse.Result != GetUsersResult.SUCCESS)
                     {
                         return new ModifySettingsResponse(ModifySettingsResult.USER_NOT_FOUND);
                     }
-                    serverSettings.User = dbUser;
+                    serverSettings.TableId = TABLE_ID;
+                    serverSettings.UserUuid = getUsersResponse.Users[0].Uuid;
                     serverSettings.ServerConfigFilepath = "";
                     serverSettings.ServerPort = 0;
                     serverSettings.TelnetPassword = "";
                     serverSettings.TelnetPort = 0;
                     serverSettings.TerminalWindowEnabled = false;
-                    session.Insert(serverSettings);
+                    serverSettings.Id = await GenerateNewServerSettingsId();
 
-                    CreateRightsForNewServerSettings(serverSettings, user, token, session);
+                    await CreateRightsForNewServerSettings(serverSettings, user, token);
 
-                    transaction.Commit();
+                    await context.SaveAsync(serverSettings);
                     return new ModifySettingsResponse(ModifySettingsResult.SETTING_ADDED);
                 }
                 catch (Exception ex)
@@ -172,77 +175,229 @@ namespace Beste.GameServer.SDaysTDie.Modules
                     Console.WriteLine(ex.ToString() + "\n" + ex.StackTrace);
                     return new ModifySettingsResponse(ModifySettingsResult.EXCEPTION);
                 }
-            }
+            });
         }
 
-        private static void CreateRightsForNewServerSettings(ServerSetting serverSettings, User user, string token, IStatelessSession session)
+        private static async Task<int> GenerateNewServerSettingsId()
         {
-            BesteRightsNamespace besteRightsNamespace = session.QueryOver<BesteRightsNamespace>()
-                .Where(p => p.Name == "Beste.GameServer.SDaysTDie.ServerSettings")
-                .SingleOrDefault();
-            if (besteRightsNamespace == null)
-                throw new Exception();
-
-            AddOrUpdateServerSettingRight(session, "GetServerSettings", serverSettings.Id, user.UserId, token, besteRightsNamespace);
-            AddOrUpdateServerSettingRight(session, "EditServerSettings", serverSettings.Id, user.UserId, token, besteRightsNamespace);
-            AddOrUpdateServerSettingRight(session, "DeleteServerSettings", serverSettings.Id, user.UserId, token, besteRightsNamespace);
-            AddOrUpdateServerSettingRight(session, "UseServerSettings", serverSettings.Id, user.UserId, token, besteRightsNamespace);
-
+            return await AmazonDynamoDBFactory.ExecuteInTransactionContext(async (client, context) =>
+            {
+                Random random = new Random();
+                for(int tries = 0; tries < 5; tries++)
+                {
+                    byte[] buf = new byte[4];
+                    random.NextBytes(buf);
+                    int generatedId = BitConverter.ToInt32(buf, 0);
+                    ServerSetting serverSetting = new ServerSetting
+                    {
+                        TableId = TABLE_ID,
+                        Id = generatedId
+                    };
+                    serverSetting = await context.LoadAsync(serverSetting);
+                    //QueryResponse response = await GetServerSettingBySpecificProperty("Id", generatedId);
+                    if (serverSetting == null)
+                    {
+                        return generatedId;
+                    }
+                }
+                throw new Exception("Was not able to generate a Unique Id for ServerSetting!");
+            });
         }
 
-        private static void AddOrUpdateServerSettingRight(IStatelessSession session, string operation, int serverSettingsId, int userId, string token, BesteRightsNamespace besteRightsNamespace)
+        private static async Task<QueryResponse> GetServerSettingByWorldGenSeed(string worldGenSeed)
         {
-            
-            BesteRightsDefinition besteRightsDefinition = null;
-            besteRightsDefinition = session.QueryOver(() => besteRightsDefinition)
-                .JoinAlias(() => besteRightsDefinition.BesteRightsNamespace, () => besteRightsNamespace)
-                .Where(p => p.BesteRightsNamespace == besteRightsNamespace)
-                .And(p => p.Operation == operation && p.RecourceId == serverSettingsId && p.RecourceModule == "ServerSetting")
-                .SingleOrDefault();
-            if(besteRightsDefinition == null)
+            return await AmazonDynamoDBFactory.ExecuteInTransactionContext(async (client, context) =>
             {
-                besteRightsDefinition = new BesteRightsDefinition();
-                besteRightsDefinition.BesteRightsNamespace = besteRightsNamespace;
-                besteRightsDefinition.Operation = operation;
-                besteRightsDefinition.RecourceModule = "ServerSetting";
-                besteRightsDefinition.RecourceId = serverSettingsId;
-            }
+                var request = new QueryRequest
+                {
+                    TableName = ServerSetting.TableName,
+                    //ScanIndexForward = false,
+                    KeyConditions = new Dictionary<string, Condition>
+                    {
+                        { "TableId", new Condition()
+                            {
+                                ComparisonOperator = ComparisonOperator.EQ,
+                                AttributeValueList = new List<AttributeValue>
+                                {
+                                  new AttributeValue { N = TABLE_ID.ToString() }
+                                }
 
-            BesteRightsAuthorization besteRightsAuthorization = null;
-            besteRightsAuthorization = session.QueryOver(() => besteRightsAuthorization)
-                .JoinAlias(() => besteRightsAuthorization.BesteRightsDefinition, () => besteRightsDefinition)
-                .Where(p => p.BesteRightsDefinition.Id == besteRightsDefinition.Id)
-                .And(p => p.LegitimationId == userId)
-                .SingleOrDefault();
-            if (besteRightsAuthorization == null)
+                            }
+                        }
+                    },
+                    ExpressionAttributeNames = new Dictionary<string, string>
+                    {
+                        { "#WorldGenSeed", "WorldGenSeed" }
+                    },
+                    ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                    {
+                        { ":WorldGenSeed", new AttributeValue { S = worldGenSeed } }
+                    },
+                    FilterExpression = "#WorldGenSeed = :WorldGenSeed"
+                };
+                return await client.QueryAsync(request);
+            });
+        }
+
+        private static async Task<QueryResponse> GetServerSettingBySpecificProperty(string propertyName, string propertyValue)
+        {
+            return await AmazonDynamoDBFactory.ExecuteInTransactionContext(async (client, context) =>
             {
-                besteRightsAuthorization = new BesteRightsAuthorization();
-                besteRightsAuthorization.Authorized = true;
-                besteRightsAuthorization.BesteRightsDefinition = besteRightsDefinition;
-            }
-            besteRightsAuthorization.LegitimationId = userId;
+                var request = new QueryRequest
+                {
+                    TableName = ServerSetting.TableName,
+                    //ScanIndexForward = false,
+                    KeyConditions = new Dictionary<string, Condition>
+                    {
+                        { "TableId", new Condition()
+                            {
+                                ComparisonOperator = ComparisonOperator.EQ,
+                                AttributeValueList = new List<AttributeValue>
+                                {
+                                  new AttributeValue { N = TABLE_ID.ToString() }
+                                }
 
-            //BesteRightsAuthorization besteRightsAuthorization;
-            //besteRightsAuthorization = new BesteRightsAuthorization();
-            //besteRightsAuthorization.LegitimationId = userId;
-            //besteRightsAuthorization.Authorized = true;
-            //besteRightsAuthorization.BesteRightsDefinition = besteRightsDefinition;
+                            }
+                        }
+                    },
+                    ExpressionAttributeNames = new Dictionary<string, string>
+                    {
+                        { "#name", propertyName }
+                    },
+                    ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                    {
+                        { ":value", new AttributeValue { S = propertyValue } }
+                    },
+                    FilterExpression = "#name = :value"
+                };
+                return await client.QueryAsync(request);
+            });
+        }
+        private static async Task<QueryResponse> GetServerSettingBySpecificProperty(string propertyName, int propertyValue)
+        {
+            return await AmazonDynamoDBFactory.ExecuteInTransactionContext(async (client, context) =>
+            {
+                var request = new QueryRequest
+                {
+                    TableName = ServerSetting.TableName,
+                    //ScanIndexForward = false,
+                    KeyConditions = new Dictionary<string, Condition>
+                    {
+                        { "TableId", new Condition()
+                            {
+                                ComparisonOperator = ComparisonOperator.EQ,
+                                AttributeValueList = new List<AttributeValue>
+                                {
+                                  new AttributeValue { N = TABLE_ID.ToString() }
+                                }
 
-            session.Insert(besteRightsDefinition);
-            session.Insert(besteRightsAuthorization);
+                            }
+                        }
+                    },
+                    ExpressionAttributeNames = new Dictionary<string, string>
+                    {
+                        { "#Property", propertyName }
+                    },
+                    ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                    {
+                        { ":Property", new AttributeValue { N = propertyValue.ToString() } }
+                    },
+                    FilterExpression = "#Property = :Property"
+                };
+                var response = await client.QueryAsync(request);
+                return response;
+            });
+        }
+        private static async Task CreateRightsForNewServerSettings(ServerSetting serverSettings, User user, string token)
+        {
+            await AddOrUpdateServerSettingRight("GetServerSettings", serverSettings.Id, user.Uuid, token);
+            await AddOrUpdateServerSettingRight("EditServerSettings", serverSettings.Id, user.Uuid, token);
+            await AddOrUpdateServerSettingRight("DeleteServerSettings", serverSettings.Id, user.Uuid, token);
+            await AddOrUpdateServerSettingRight("UseServerSettings", serverSettings.Id, user.Uuid, token);
+        }
+
+        private static async Task AddOrUpdateServerSettingRight(string operation, int serverSettingsId, string userUuid, string token)
+        {
+            BesteRightsAuthorization besteRightsAuthorizationDb = await AmazonDynamoDBFactory.ExecuteInTransactionContext(async (client, context) =>
+            {
+                var request = new QueryRequest
+                {
+                    TableName = BesteRightsAuthorization.TableName,
+                    //ScanIndexForward = false,
+                    KeyConditions = new Dictionary<string, Condition>
+                    {
+                        { "TableId", new Condition()
+                            {
+                                ComparisonOperator = ComparisonOperator.EQ,
+                                AttributeValueList = new List<AttributeValue>
+                                {
+                                  new AttributeValue { N = TABLE_ID.ToString() }
+                                }
+
+                            }
+                        }
+                    },
+                    ExpressionAttributeNames = new Dictionary<string, string>
+                    {
+                        { "#Namespace", "Namespace" },
+                        { "#Operation", "Operation" },
+                        { "#RecourceModule", "RecourceModule" },
+                        { "#RecourceId", "RecourceId" }
+                    },
+                    ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                    {
+                        { ":Namespace", new AttributeValue { S =  "Beste.GameServer.SDaysTDie.ServerSettings" } },
+                        { ":Operation", new AttributeValue { S =  operation } },
+                        { ":RecourceModule", new AttributeValue { S =  "ServerSetting" } },
+                        { ":RecourceId", new AttributeValue { N =  serverSettingsId.ToString() } }
+                    },
+                    FilterExpression = "#Namespace = :Namespace and" +
+                        "#Operation = :Operation and" +
+                        "#RecourceModule = :RecourceModule and" +
+                        "#RecourceId = :RecourceId"
+                };
+                var response = await client.QueryAsync(request);
+                if(response.Items.Count > 0)
+                {
+                    return new BesteRightsAuthorization
+                    {
+                        TableId = TABLE_ID,
+                        Uuid = response.Items[0]["Uuid"].S
+                    };
+                }
+                return null;
+            });
+            await AmazonDynamoDBFactory.ExecuteInTransactionContext(async (client, context) =>
+            {
+                BesteRightsAuthorization besteRightsAuthorization = new BesteRightsAuthorization
+                {
+                    TableId = TABLE_ID,
+                    Namespace = "Beste.GameServer.SDaysTDie.ServerSettings",
+                    Operation = operation,
+                    RecourceModule = "ServerSetting",
+                    RecourceId = serverSettingsId,
+                    Authorized = true,
+                    LegitimationUuid = userUuid,
+                    Uuid = besteRightsAuthorizationDb == null ? 
+                        Guid.NewGuid().ToString() :
+                        besteRightsAuthorizationDb.Uuid
+                };
+                await context.SaveAsync(besteRightsAuthorization);
+            });
             RightControl.Grant(token, operation, "ServerSetting", serverSettingsId);
         }
 
-        private static ModifySettingsResponse EditServerSetting(ServerSetting serverSettings, User user, string token)
+        private static async Task<ModifySettingsResponse> EditServerSetting(ServerSetting serverSettings, User user, string token)
         {
-            using (NHibernate.ISession session = SessionFactory.GetSession())
-            using (ITransaction transaction = session.BeginTransaction())
+            ServerSetting dbServerSetting = await AmazonDynamoDBFactory.ExecuteInTransactionContext(async (client, context) =>
+            {
+                serverSettings.TableId = TABLE_ID;
+                return await context.LoadAsync(serverSettings);
+            });
+            return await AmazonDynamoDBFactory.ExecuteInTransactionContext(async (client, context) =>
             {
                 try
                 {
-                    ServerSetting dbServerSetting = session.QueryOver<ServerSetting>()
-                        .Where(p => p.Id == serverSettings.Id)
-                        .SingleOrDefault();
                     if (dbServerSetting == null)
                     {
                         return new ModifySettingsResponse(ModifySettingsResult.SETTING_NOT_FOUND);
@@ -251,32 +406,25 @@ namespace Beste.GameServer.SDaysTDie.Modules
                     {
                         return new ModifySettingsResponse(ModifySettingsResult.SERVER_MUST_BE_STOPPED);
                     }
-                    ServerSetting checkExistingGameSeed = session.QueryOver<ServerSetting>()
-                        .Where(p => p.WorldGenSeed == serverSettings.WorldGenSeed)
-                        .SingleOrDefault();
-                    if (checkExistingGameSeed != null && checkExistingGameSeed.Id != dbServerSetting.Id)
+                    QueryResponse response = await GetServerSettingBySpecificProperty("WorldGenSeed", serverSettings.WorldGenSeed);
+                    if (response.Items.Count > 0 && Convert.ToInt32(response.Items[0]["Id"].N.ToString()) != dbServerSetting.Id)
                     {
                         return new ModifySettingsResponse(ModifySettingsResult.GAME_SEED_ALREADY_EXISTS);
                     }
-                    int oldUserId = dbServerSetting.User.UserId;
-                    User dbUser = session.QueryOver<User>()
-                        .Where(p => p.Username == user.Username)
-                        .SingleOrDefault();
-                    serverSettings.User = dbUser;
-                    serverSettings.CopyAllButId(dbServerSetting);
-                    if(oldUserId != dbUser.UserId)
+                    string oldUserId = dbServerSetting.UserUuid;
+                    GetUsersResponse getUsersResponse = await BesteUser.GetUser(JsonConvert.SerializeObject(user, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }));
+                    if (getUsersResponse.Result != GetUsersResult.SUCCESS)
                     {
-                        BesteRightsAuthorization besteRightsAuthorization = session.QueryOver<BesteRightsAuthorization>()
-                            .Where(p => p.LegitimationId == oldUserId)
-                            .SingleOrDefault();
-                        besteRightsAuthorization.LegitimationId = dbUser.UserId;
-                        if (RightControl.IsDenied(token, "EditServerSettings", "ServerSetting", dbUser.UserId))
-                            RightControl.Grant(token, "EditServerSettings", "ServerSetting", serverSettings.Id);
-                        session.Save(besteRightsAuthorization);
+                        return new ModifySettingsResponse(ModifySettingsResult.USER_NOT_FOUND);
                     }
-
-                    session.Save(dbServerSetting);
-                    transaction.Commit();
+                    User dbUser = getUsersResponse.Users[0];
+                    serverSettings.UserUuid = dbUser.Uuid;
+                    serverSettings.CopyAllButId(dbServerSetting);
+                    if (oldUserId != getUsersResponse.Users[0].Uuid)
+                    {
+                        await AddOrUpdateServerSettingRight("EditServerSettings", serverSettings.Id, dbUser.Uuid, token);
+                    }
+                    await context.SaveAsync(dbServerSetting);
                     return new ModifySettingsResponse(ModifySettingsResult.SETTING_EDITED);
                 }
                 catch (Exception ex)
@@ -284,48 +432,36 @@ namespace Beste.GameServer.SDaysTDie.Modules
                     Console.WriteLine(ex.ToString() + "\n" + ex.StackTrace);
                     return new ModifySettingsResponse(ModifySettingsResult.EXCEPTION);
                 }
-            }
+            });
         }
 
-        private static ModifySettingsResponse DeleteServerSetting(ServerSetting serverSettings, User user, string connectedUserToken)
+        private static async Task<ModifySettingsResponse> DeleteServerSetting(ServerSetting serverSettings, User user, string connectedUserToken)
         {
-            using (NHibernate.ISession session = SessionFactory.GetSession())
-            using (ITransaction transaction = session.BeginTransaction())
+            ServerSetting dbServerSetting = await AmazonDynamoDBFactory.ExecuteInTransactionContext(async (client, context) =>
+            {
+                serverSettings.TableId = TABLE_ID;
+                return await context.LoadAsync(serverSettings);
+            });
+            return await AmazonDynamoDBFactory.ExecuteInTransactionContext(async (client, context) =>
             {
                 try
                 {
-                    ServerSetting dbServerSetting = session.QueryOver<ServerSetting>()
-                        .Where(p => p.Id == serverSettings.Id)
-                        .SingleOrDefault();
                     if (dbServerSetting == null)
                     {
                         return new ModifySettingsResponse(ModifySettingsResult.SETTING_NOT_FOUND);
                     }
-                    if(SDaysTDieServerHandler.IsServerRunningBySeed(dbServerSetting.WorldGenSeed))
+                    if (SDaysTDieServerHandler.IsServerRunningBySeed(dbServerSetting.WorldGenSeed))
                     {
                         return new ModifySettingsResponse(ModifySettingsResult.SERVER_MUST_BE_STOPPED);
                     }
-
-                    session.Delete(dbServerSetting);
-
-                    BesteRightsDefinition besteRightsDefinition = null;
-                    BesteRightsAuthorization besteRightsAuthorization = null;
-                    var result = session.QueryOver<BesteRightsAuthorization>(() => besteRightsAuthorization)
-                        .JoinAlias(() => besteRightsAuthorization.BesteRightsDefinition, () => besteRightsDefinition)
-                        .Where(() => besteRightsDefinition.RecourceId == dbServerSetting.Id)
-                        .List<BesteRightsAuthorization>();
-                    List<BesteRightsDefinition> besteRightsDefinitions = new List<BesteRightsDefinition>(); 
-                    foreach (var item in result)
+                    await AmazonDynamoDBFactory.ExecuteInTransactionContext(async (clientDelete, contextDelete) =>
                     {
-                        if (!besteRightsDefinitions.Contains(item.BesteRightsDefinition))
-                            besteRightsDefinitions.Add(item.BesteRightsDefinition);
-                        session.Delete(item);
-                    }
-                    foreach (var item in besteRightsDefinitions)
+                        await contextDelete.DeleteAsync(dbServerSetting);
+                    });
+                    await AmazonDynamoDBFactory.ExecuteInTransactionContext(async (clientDelete, contextDelete) =>
                     {
-                        session.Delete(item);
-                    }
-                    transaction.Commit();
+                        await DeleteAllRightsByServerSettingId(dbServerSetting.Id);
+                    });
                     return new ModifySettingsResponse(ModifySettingsResult.SETTING_DELETED);
                 }
                 catch (Exception ex)
@@ -333,93 +469,133 @@ namespace Beste.GameServer.SDaysTDie.Modules
                     Console.WriteLine(ex.ToString() + "\n" + ex.StackTrace);
                     return new ModifySettingsResponse(ModifySettingsResult.EXCEPTION);
                 }
-            }
+            });
         }
 
+        private static async Task DeleteAllRightsByServerSettingId(int serverSettingId)
+        {
+
+            await AmazonDynamoDBFactory.ExecuteInTransactionContext(async (client, context) =>
+            {
+                var request = new QueryRequest
+                {
+                    TableName = BesteRightsAuthorization.TableName,
+                    //ScanIndexForward = false,
+                    KeyConditions = new Dictionary<string, Condition>
+                    {
+                        { "TableId", new Condition()
+                            {
+                                ComparisonOperator = ComparisonOperator.EQ,
+                                AttributeValueList = new List<AttributeValue>
+                                {
+                                  new AttributeValue { N = TABLE_ID.ToString() }
+                                }
+
+                            }
+                        }
+                    },
+                    ExpressionAttributeNames = new Dictionary<string, string>
+                    {
+                        { "#Namespace", "Namespace" },
+                        { "#RecourceModule", "RecourceModule" },
+                        { "#RecourceId", "RecourceId" }
+                    },
+                    ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                    {
+                        { ":Namespace", new AttributeValue { S =  "Beste.GameServer.SDaysTDie.ServerSettings" } },
+                        { ":RecourceModule", new AttributeValue { S =  "ServerSetting" } },
+                        { ":RecourceId", new AttributeValue { N =  serverSettingId.ToString() } }
+                    },
+                    FilterExpression = "#Namespace = :Namespace and" +
+                      "#RecourceModule = :RecourceModule and" +
+                      "#RecourceId = :RecourceId"
+                };
+                var response = await client.QueryAsync(request);
+                foreach (var item in response.Items)
+                {
+                    await context.DeleteAsync(new BesteRightsAuthorization
+                    {
+                        TableId = TABLE_ID,
+                        Uuid = item["Uuid"].S
+                    });
+                }
+            });
+ 
+        }
 
         internal async static Task GetServerSettingsOfLoggedInUser(WebSocketHandler webSocketHandler)
         {
-            Command resonseCommand = GetServerSettings(() =>
+            Command resonseCommand = await GetServerSettings(async () =>
             {
-                //ServerSetting serverSettings = JsonConvert.DeserializeObject<ServerSetting>(webSocketHandler.ReceivedCommand.CommandData.ToString());
-                return GetServerSettingsOfUser(webSocketHandler.User);
+                return await GetServerSettingsOfUser(webSocketHandler.User);
             },
                 "GetServerSettings",
                 webSocketHandler,
-                webSocketHandler.User.UserId);
+                null);
             await webSocketHandler.Send(resonseCommand);
         }
         internal async static Task GetServerSettingsById(WebSocketHandler webSocketHandler)
         {
-            Command resonseCommand = GetServerSettings(() =>
+            ServerSetting serverSettings = JsonConvert.DeserializeObject<ServerSetting>(webSocketHandler.ReceivedCommand.CommandData.ToString());
+            Command resonseCommand = await GetServerSettings(async () =>
             {
-                ServerSetting serverSettings = JsonConvert.DeserializeObject<ServerSetting>(webSocketHandler.ReceivedCommand.CommandData.ToString());
-                return GetServerSettingsByIdAndUser(webSocketHandler.User, serverSettings.Id);
+                return await GetServerSettingsByIdAndUser(webSocketHandler.User, serverSettings.Id);
             },
                 "GetServerSettings",
                 webSocketHandler,
-                JsonConvert.DeserializeObject<User>(webSocketHandler.ReceivedCommand.CommandData.ToString()).UserId);
+                serverSettings.Id);
             await webSocketHandler.Send(resonseCommand);
         }
-        internal static GetSettingsResponse GetServerSettingsByIdAndUser(WebSocketHandler webSocketHandler, User user, int serverSettingId)
+        internal async static Task<GetSettingsResponse> GetServerSettingsByIdAndUser(WebSocketHandler webSocketHandler, User user, int serverSettingId)
         {
-            Command resonseCommand = GetServerSettings(() =>
+            Command resonseCommand = await GetServerSettings(async () =>
             {
-                return GetServerSettingsByIdAndUser(user, serverSettingId);
+                return await GetServerSettingsByIdAndUser(user, serverSettingId);
             },
                 "GetServerSettings",
                 webSocketHandler,
-                JsonConvert.DeserializeObject<User>(webSocketHandler.ReceivedCommand.CommandData.ToString()).UserId);
+                serverSettingId);
             return (GetSettingsResponse)resonseCommand.CommandData;
         }
 
-        internal static GetSettingsResponse GetServerSettingsByIdAndUser(User user, int serverSettingId)
+        internal static async Task<GetSettingsResponse> GetServerSettingsByIdAndUser(User user, int serverSettingId)
         {
-            List<ServerSetting> serverSettings = SessionFactory.ExecuteInTransactionContext<List<ServerSetting>>((session, transaction) =>
+            ServerSetting dbServerSetting = await AmazonDynamoDBFactory.ExecuteInTransactionContext(async (client, context) =>
             {
-                ServerSetting serverSetting = null;
-                var result = session.QueryOver<ServerSetting>(() => serverSetting)
-                    .JoinAlias(() => serverSetting.User, () => user)
-                    .Where(k => k.User.UserId == user.UserId &&
-                        k.Id == serverSettingId)
-                    .List<ServerSetting>();
-                return new List<ServerSetting>(result);
-            });
-            return new GetSettingsResponse(GetSettingsResult.OK, serverSettings);
-        }
-
-        private static GetSettingsResponse GetServerSettingsOfUser(User user)
-        {
-            List<ServerSetting> serverSettings = SessionFactory.ExecuteInTransactionContext<List<ServerSetting>>((session, transaction) =>
-            {
-                ServerSetting serverSetting = null;
-                var result = session.QueryOver<ServerSetting>(() => serverSetting)
-                    .JoinAlias(() => serverSetting.User, () => user)
-                    .Where(k => k.User.UserId == user.UserId)
-                    .List<ServerSetting>();
-                List<ServerSetting> convertedServerSettings = new List<ServerSetting>();
-                foreach(ServerSetting item in result)
+                ServerSetting serverSetting = new ServerSetting
                 {
-                    item.IsRunning = SDaysTDieServerHandler.IsServerRunningBySeed(item.WorldGenSeed);
-                    convertedServerSettings.Add(item);
-                }
-                return convertedServerSettings;
+                    TableId = TABLE_ID,
+                    Id = serverSettingId
+                };
+                return await context.LoadAsync(serverSetting);
+            });
+            List<ServerSetting> serverSettings = new List<ServerSetting> { dbServerSetting };
+            return new GetSettingsResponse(GetSettingsResult.OK, serverSettings);
+        }
+
+        private static async Task<GetSettingsResponse> GetServerSettingsOfUser(User user)
+        {
+            QueryResponse response = await GetServerSettingBySpecificProperty("UserUuid", user.Uuid);
+            List<ServerSetting> serverSettings = new List<ServerSetting>();
+            response.Items.ForEach(item =>
+            {
+                serverSettings.Add(ServerSetting.FromDynamoDbDictionary(item));
             });
             return new GetSettingsResponse(GetSettingsResult.OK, serverSettings);
         }
 
-        private static Command GetServerSettings(Func<GetSettingsResponse> getAction, string actionName, WebSocketHandler webSocketHandler, int? ressourceId = null)
+        private static async Task<Command> GetServerSettings(Func<Task<GetSettingsResponse>> getAction, string actionName, WebSocketHandler webSocketHandler, int? ressourceId = null)
         {
             try
             {
                 GetSettingsResponse response = null;
                 if (RightControl.IsGranted(webSocketHandler.ConnectedUserToken, actionName, "ServerSetting", ressourceId))
                 {
-                    response = getAction();
+                    response = await getAction();
                 }
                 else if (RightControl.IsGranted(webSocketHandler.ConnectedUserToken, actionName + "_" + webSocketHandler.User.Username, "ServerSetting"))
                 {
-                    response = getAction();
+                    response = await getAction();
                 }
                 else
                 {

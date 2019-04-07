@@ -1,3 +1,4 @@
+using Beste.Aws.Databases.Connector;
 using Beste.Databases.Connector;
 using Beste.Databases.User;
 using Beste.GameServer.SDaysTDie;
@@ -25,6 +26,7 @@ namespace Testproject
         private static char SEP { get; set; } = Path.DirectorySeparatorChar;
         string SDaysToDiePath { get; set; } = "C:" + SEP + "Program Files (x86)" + SEP + "Steam" + SEP + "steamapps" + SEP + "common" + SEP + "7 Days To Die";
 
+        public static int TABLE_ID = 1;
         [ClassInitialize]
         public async static Task AssemblyInit(TestContext context)
         {
@@ -38,13 +40,10 @@ namespace Testproject
                     .Build();
                 host.Run();
             });
-            TestHelper.ActivateTestSchema();
 
-            var t2 = Task.Run(() =>
-            {
-                TestHelper.CreateInitialUsersAndRights();
-                TestHelper.CreateInitialSettingsAndRights();
-            });
+            await TestHelper.CreateInitialUsersAndRights();
+            await TestHelper.CreateInitialSettingsAndRights();
+            
             await Task.Delay(3000);
         }
 
@@ -90,17 +89,13 @@ namespace Testproject
             await webSocket.SendAsync(new ArraySegment<byte>(sendBytes, 0, sendBytes.Length), WebSocketMessageType.Text, true, CancellationToken.None);
             await webSocketHandler.ExtractCompleteMessage(buffer, 60);
             ModifySettingsResponse response = JsonConvert.DeserializeObject<ModifySettingsResponse>(webSocketHandler.ReceivedCommand.CommandData.ToString());
-            if (response.Result != ModifySettingsResult.SETTING_ADDED)
-            {
-                Assert.Fail();
-            }
+            TestHelper.ValiateResponse(response, ModifySettingsResult.SETTING_ADDED);
+
             await webSocket.SendAsync(new ArraySegment<byte>(sendBytes, 0, sendBytes.Length), WebSocketMessageType.Text, true, CancellationToken.None);
             await webSocketHandler.ExtractCompleteMessage(buffer, 60);
             response = JsonConvert.DeserializeObject<ModifySettingsResponse>(webSocketHandler.ReceivedCommand.CommandData.ToString());
-            if (response.Result != ModifySettingsResult.GAME_SEED_ALREADY_EXISTS)
-            {
-                Assert.Fail();
-            }
+            TestHelper.ValiateResponse(response, ModifySettingsResult.GAME_SEED_ALREADY_EXISTS);
+
         }
 
         [TestMethod]
@@ -144,30 +139,23 @@ namespace Testproject
             ServerSetting serverSettings = TestHelper.GenerateNewServerSetting();
             serverSettings.GameName = "Edited!";
             serverSettings.Id = 532345823;
-            using (NHibernate.IStatelessSession session = SessionFactory.GetStatelessSession())
-            using (ITransaction transaction = session.BeginTransaction())
+
+            await AmazonDynamoDBFactory.ExecuteInTransactionContext(async (client, context) =>
             {
-                BesteRightsDefinition besteRightsDefinition = new BesteRightsDefinition();
-                besteRightsDefinition.BesteRightsNamespace = session.QueryOver<BesteRightsNamespace>()
-                    .Where(p => p.Name == "Beste.GameServer.SDaysTDie.ServerSettings")
-                    .SingleOrDefault();
-                besteRightsDefinition.Operation = "EditServerSettings";
-                besteRightsDefinition.RecourceModule = "ServerSetting";
-                besteRightsDefinition.RecourceId = serverSettings.Id;
-
-                if (besteRightsDefinition.BesteRightsNamespace == null)
-                    throw new Exception();
-
-                BesteRightsAuthorization besteRightsAuthorization = new BesteRightsAuthorization();
-                besteRightsAuthorization.LegitimationId = webSocketHandler.User.UserId;
-                besteRightsAuthorization.Authorized = true;
-                besteRightsAuthorization.BesteRightsDefinition = besteRightsDefinition;
-
-                session.Insert(besteRightsDefinition);
-                session.Insert(besteRightsAuthorization);
-
-                transaction.Commit();
-            }
+                BesteRightsAuthorization besteRightsAuthorization = new BesteRightsAuthorization
+                {
+                    TableId = TABLE_ID,
+                    Namespace = "Beste.GameServer.SDaysTDie.ServerSettings",
+                    Operation = "EditServerSettings",
+                    RecourceModule = "ServerSetting",
+                    RecourceId = serverSettings.Id,
+                    Authorized = true,
+                    LegitimationUuid = webSocketHandler.User.Uuid,
+                    Uuid = Guid.NewGuid().ToString()
+                };
+                await AmazonDynamoDBFactory.Context.SaveAsync(besteRightsAuthorization);
+            });
+            
             await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, webSocketHandler.Result.CloseStatusDescription, CancellationToken.None);
 
             webSocket = new ClientWebSocket();

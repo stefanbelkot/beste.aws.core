@@ -17,6 +17,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Beste.GameServer.SDaysTDie.Modules;
 using static Beste.GameServer.SDaysTDie.Modules.UserManager;
+using Beste.Aws.Module;
 
 namespace Testproject
 {
@@ -37,17 +38,12 @@ namespace Testproject
                     .Build();
                 host.Run();
             });
-            TestHelper.ActivateTestSchema();
-
-            var t2 = Task.Run(() =>
-            {
-                TestHelper.CreateInitialUsersAndRights();
-            });
+            await TestHelper.CreateInitialUsersAndRights();
             await Task.Delay(3000);
         }
 
 
-        [TestMethod, Timeout(5000)]
+        [TestMethod, Timeout(15000)]
         public async Task AdminLoginAndChangePassword()
         {
 
@@ -71,7 +67,7 @@ namespace Testproject
             TestHelper.ValiateResponse(response, ModifyUserResult.SUCCESS);
         }
 
-        [TestMethod, Timeout(5000)]
+        [TestMethod, Timeout(15000)]
         public async Task ChangeLoggedInUsersPassword()
         {
 
@@ -100,7 +96,7 @@ namespace Testproject
 
         }
 
-        [TestMethod, Timeout(5000)]
+        [TestMethod, Timeout(15000)]
         public async Task ChangeOtherUsersPasswordNotAllowed()
         {
 
@@ -148,7 +144,7 @@ namespace Testproject
             TestHelper.ValiateResponse(authResponse, BesteUserAuthentificationResult.WRONG_PASSWORD);
         }
 
-        [TestMethod, Timeout(5000)]
+        [TestMethod, Timeout(15000)]
         public async Task CreateUserModifyAndDelete()
         {
 
@@ -182,7 +178,7 @@ namespace Testproject
             TestHelper.ValiateResponse(modifyResponse, ModifyUserResult.SUCCESS);
         }
 
-        [TestMethod, Timeout(5000)]
+        [TestMethod, Timeout(15000)]
         public async Task CreateUsersAndGetList()
         {
 
@@ -248,7 +244,7 @@ namespace Testproject
             });
         }
 
-        [TestMethod, Timeout(5000)]
+        [TestMethod, Timeout(15000)]
         public async Task GetUsersForNormalUser()
         {
 
@@ -284,7 +280,7 @@ namespace Testproject
             
         }
 
-        [TestMethod, Timeout(8000)]
+        [TestMethod, Timeout(15000)]
         public async Task LoggedInUserHasRights()
         {
             

@@ -1,5 +1,4 @@
 ﻿using Beste.GameServer.SDaysTDie.Connections;
-using Beste.GameServer.SDaysTDie.Helper;
 using Beste.GameServer.SDaysTDie.Modules;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -19,7 +18,6 @@ namespace Beste.GameServer.SDaysTDie
         private static readonly char SEP = Path.DirectorySeparatorChar;
         public void ConfigureServices(IServiceCollection services)
         {
-            HelperDb.ActivateSessionFactory();
         }
         public void Configure(IApplicationBuilder app, IHostingEnvironment env, Microsoft.Extensions.Logging.ILoggerFactory loggerFactory)
         {
@@ -168,8 +166,8 @@ namespace Beste.GameServer.SDaysTDie
             {
                 if (webSocketHandler.ConnectedUserToken != "")
                 {
-                    ServerSettingsHandler.RegisterUser(webSocketHandler.User, webSocketHandler.ConnectedUserToken);
-                    SDaysTDieServerHandler.RegisterUser(webSocketHandler.User, webSocketHandler.ConnectedUserToken);
+                    await ServerSettingsHandler.RegisterUser(webSocketHandler.User, webSocketHandler.ConnectedUserToken);
+                    await SDaysTDieServerHandler.RegisterUser(webSocketHandler.User, webSocketHandler.ConnectedUserToken);
                     while (!webSocketHandler.WebSocket.CloseStatus.HasValue)
                     {
                         await webSocketHandler.ExtractCompleteMessage(buffer);

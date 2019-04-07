@@ -2,7 +2,6 @@
 using Beste.Databases.User;
 using Beste.GameServer.SDaysTDie.Connections;
 using Beste.GameServer.SDaysTDie.Extensions;
-using Beste.GameServer.SDaysTDie.Helper;
 using Beste.Rights;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
@@ -78,7 +77,7 @@ namespace Beste.GameServer.SDaysTDie.Modules
 
     class SDaysTDieServerHandler
     {
-        static Dictionary<int, SDaysTDieServer> SDaysTDieServersByUserIds { get; set; } = new Dictionary<int, SDaysTDieServer>();
+        static Dictionary<string, SDaysTDieServer> SDaysTDieServersByUserIds { get; set; } = new Dictionary<string, SDaysTDieServer>();
 
         public static RightControl RightControl { get; set; } = new RightControl("Beste.GameServer.SDaysTDie.ServerHandler");
         public static SDaysTDieServerHandler MyInstance { get; set; } = new SDaysTDieServerHandler();
@@ -87,11 +86,11 @@ namespace Beste.GameServer.SDaysTDie.Modules
         //todo Later on create own instances for each user?
         private static string SDaysToDiePath { get; set; } = "C:" + SEP + "Program Files (x86)" + SEP + "Steam" + SEP + "steamapps" + SEP + "common" + SEP + "7 Days To Die";
 
-        private Dictionary<int, SDaysTDieServerHandler> UserInstances { get; set; } = new Dictionary<int, SDaysTDieServerHandler>();
+        private Dictionary<string, SDaysTDieServerHandler> UserInstances { get; set; } = new Dictionary<string, SDaysTDieServerHandler>();
         private SDaysTDieServerHandler()
         {
         }
-        internal static void RegisterUser(User user, string token)
+        internal static async Task RegisterUser(User user, string token)
         {
             List<PureRight> pureRights = new List<PureRight>();
             pureRights.Add(new PureRight
@@ -100,19 +99,19 @@ namespace Beste.GameServer.SDaysTDie.Modules
                 Operation = "StartServer",
                 RecourceModule = "ServerHandler"
             });
-            string otherToken = RightControl.Register(user.UserId, pureRights, token);
+            string otherToken = await RightControl.Register(user.Uuid, pureRights, token);
         }
 
 
         #region "StartServer"
         internal async static Task StartServer(WebSocketHandler webSocketHandler)
         {
-            StartServerResponse response = TryStartServer(webSocketHandler);
+            StartServerResponse response = await TryStartServer(webSocketHandler);
             Command command = new Command("StartServerResponse", response);
             await webSocketHandler.Send(command);
         }
 
-        private static StartServerResponse TryStartServer(WebSocketHandler webSocketHandler)
+        private static async Task<StartServerResponse> TryStartServer(WebSocketHandler webSocketHandler)
         {
             StartServerResponse response = null;
             ServerSetting serverSetting = JsonConvert.DeserializeObject<ServerSetting>(webSocketHandler.ReceivedCommand.CommandData.ToString());
@@ -122,7 +121,7 @@ namespace Beste.GameServer.SDaysTDie.Modules
                 return new StartServerResponse(StartServerResult.RIGHT_VIOLATION);
             }
 
-            GetSettingsResponse getSettingsResponse = ServerSettingsHandler.GetServerSettingsByIdAndUser(webSocketHandler, webSocketHandler.User, serverSetting.Id);
+            GetSettingsResponse getSettingsResponse = await ServerSettingsHandler.GetServerSettingsByIdAndUser(webSocketHandler, webSocketHandler.User, serverSetting.Id);
             if (getSettingsResponse.Result != GetSettingsResult.OK)
             {
                 return ExtractNotOKGetSettingsResult(response, getSettingsResponse);
@@ -163,7 +162,7 @@ namespace Beste.GameServer.SDaysTDie.Modules
 
         private static bool IsServerCountOfUserExceeding(ServerSettings serverSettings)
         {
-            return SDaysTDieServersByUserIds.ContainsKey(serverSettings.User.UserId);
+            return SDaysTDieServersByUserIds.ContainsKey(serverSettings.UserUuid);
         }
 
         private static bool HasUserStartServerAndUseSettingsRights(WebSocketHandler webSocketHandler, ServerSetting serverSetting)
@@ -203,8 +202,8 @@ namespace Beste.GameServer.SDaysTDie.Modules
                     return new StartServerResponse(StartServerResult.NO_FREE_PORT);
                 }
                 serverSettings.SaveToFile(SDaysToDiePath + SEP + serverSettings.ServerConfigFilepath);
-                SDaysTDieServersByUserIds.Add(serverSettings.User.UserId, new SDaysTDieServer(SDaysToDiePath, serverSettings));
-                SDaysTDieServersByUserIds[serverSettings.User.UserId].Start();
+                SDaysTDieServersByUserIds.Add(serverSettings.UserUuid, new SDaysTDieServer(SDaysToDiePath, serverSettings));
+                SDaysTDieServersByUserIds[serverSettings.UserUuid].Start();
                 response = new StartServerResponse(StartServerResult.SERVER_STARTED);
             }
             catch (Exception ex)
@@ -263,7 +262,7 @@ namespace Beste.GameServer.SDaysTDie.Modules
         internal async static Task<StopServerResponse> TryStopServer(ServerSetting serverSetting)
         {
             StopServerResponse response = null;
-            KeyValuePair<int, SDaysTDieServer> keyValuePair = SDaysTDieServersByUserIds.FirstOrDefault(x => x.Value.ServerSettings.WorldGenSeed == serverSetting.WorldGenSeed);
+            KeyValuePair<string, SDaysTDieServer> keyValuePair = SDaysTDieServersByUserIds.FirstOrDefault(x => x.Value.ServerSettings.WorldGenSeed == serverSetting.WorldGenSeed);
             SDaysTDieServer sDaysTDieServer = keyValuePair.Value;
             StopServerResult stopServerResult = StopServerResult.STOPPING;
             void SDaysTDieServer_OnSDaysTDieServerStoppedHandler(SDaysTDieServer sender, SDaysTDieServer.OnSDaysTDieServerStoppedEventArgs e)
@@ -315,7 +314,7 @@ namespace Beste.GameServer.SDaysTDie.Modules
 
             if (IsServerOfSettingsRunning(serverSetting))
             {
-                SDaysTDieServer sDaysTDieServer = SDaysTDieServersByUserIds[serverSetting.User.UserId];
+                SDaysTDieServer sDaysTDieServer = SDaysTDieServersByUserIds[serverSetting.UserUuid];
                 sDaysTDieServer.ConnectWebsocketHandler(webSocketHandler);
                 return new ConnectTelnetResponse(ConnectTelnetResult.OK);
             }
@@ -327,8 +326,8 @@ namespace Beste.GameServer.SDaysTDie.Modules
 
         private static bool IsServerOfSettingsRunning(ServerSetting serverSettings)
         {
-            KeyValuePair<int, SDaysTDieServer> keyValuePair = SDaysTDieServersByUserIds.FirstOrDefault(x => x.Value.ServerSettings.WorldGenSeed == serverSettings.WorldGenSeed);
-            return keyValuePair.Key > 0;
+            KeyValuePair<string, SDaysTDieServer> keyValuePair = SDaysTDieServersByUserIds.FirstOrDefault(x => x.Value.ServerSettings.WorldGenSeed == serverSettings.WorldGenSeed);
+            return keyValuePair.Key != "" && keyValuePair.Key != null;
         }
         #endregion
         private static int GetFreePortInRange(int portFrom, int portTo)
@@ -356,25 +355,25 @@ namespace Beste.GameServer.SDaysTDie.Modules
 
         private static bool IsServerOfSettingsRunning(ServerSettings serverSettings)
         {
-            KeyValuePair<int, SDaysTDieServer> keyValuePair = SDaysTDieServersByUserIds.FirstOrDefault(x => x.Value.ServerSettings.WorldGenSeed == serverSettings.WorldGenSeed);
-            return keyValuePair.Key > 0;
+            KeyValuePair<string, SDaysTDieServer> keyValuePair = SDaysTDieServersByUserIds.FirstOrDefault(x => x.Value.ServerSettings.WorldGenSeed == serverSettings.WorldGenSeed);
+            return keyValuePair.Key != "" && keyValuePair.Key != null;
         }
         private static bool IsPortBlockedBySDaysTDieServer(int port)
         {
-            KeyValuePair<int, SDaysTDieServer> keyValuePair = SDaysTDieServersByUserIds.FirstOrDefault(x =>
+            KeyValuePair<string, SDaysTDieServer> keyValuePair = SDaysTDieServersByUserIds.FirstOrDefault(x =>
             x.Value.ServerSettings.ServerPort == port || x.Value.ServerSettings.TelnetPort == port);
-            return keyValuePair.Key > 0;
+            return keyValuePair.Key != "" && keyValuePair.Key != null;
         }
 
-        private SDaysTDieServer GetServerUserInstance(int userId)
+        private SDaysTDieServer GetServerUserInstance(string userId)
         {
             return !SDaysTDieServersByUserIds.ContainsKey(userId) ? SDaysTDieServersByUserIds[userId] : null;
         }
 
         internal static bool IsServerRunningBySeed(string worldGenSeed)
         {
-            KeyValuePair<int, SDaysTDieServer> keyValuePair = SDaysTDieServersByUserIds.FirstOrDefault(x => x.Value.ServerSettings.WorldGenSeed == worldGenSeed);
-            return keyValuePair.Key > 0;
+            KeyValuePair<string, SDaysTDieServer> keyValuePair = SDaysTDieServersByUserIds.FirstOrDefault(x => x.Value.ServerSettings.WorldGenSeed == worldGenSeed);
+            return keyValuePair.Key != "" && keyValuePair.Key != null;
         }
     }
 }
