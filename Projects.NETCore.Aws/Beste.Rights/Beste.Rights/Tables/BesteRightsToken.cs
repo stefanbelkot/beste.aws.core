@@ -13,7 +13,7 @@ namespace Beste.Rights {
         public virtual int TableId { get; set; }
         public virtual string Namespace { get; set; }
         public virtual string Token { get; set; }
-        public virtual int LegitimationId { get; set; }
+        public virtual string LegitimationUuid { get; set; }
         public virtual DateTime Ends { get; set; }
     }
 }

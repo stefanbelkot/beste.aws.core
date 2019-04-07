@@ -14,7 +14,7 @@ namespace Beste.Rights {
         public virtual int TableId { get; set; }
         [DynamoDBRangeKey]
         public virtual string Uuid { get; set; }
-        public virtual int LegitimationId { get; set; }
+        public virtual string LegitimationUuid { get; set; }
         public virtual bool Authorized { get; set; }
         public virtual string RecourceModule { get; set; }
         public virtual int? RecourceId { get; set; }

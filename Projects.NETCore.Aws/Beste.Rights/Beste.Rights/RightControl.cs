@@ -50,45 +50,45 @@ namespace Beste.Rights
 
             BesteRightsNamespace = mainNamespace;
         }
-        
+
         /// <summary>
         /// Register with rights from database and a list of additional rights
         /// </summary>
-        /// <param name="legitimationId">associated legitimated id</param>
+        /// <param name="legitimationUuid">associated legitimated id</param>
         /// <param name="additionalRights"></param>
         /// <param name="token">optional pregiven token</param>
         /// <returns>the registered token</returns>
-        public async Task<string> Register(int legitimationId, List<PureRight> additionalRights, string token = null)
+        public async Task<string> Register(string legitimationUuid, List<PureRight> additionalRights, string token = null)
         {
-            List<PureRight> pureRights = await GetPureRights(legitimationId);
+            List<PureRight> pureRights = await GetPureRights(legitimationUuid);
             pureRights.AddRange(additionalRights);
-            return ApplyRights(legitimationId, pureRights, token);
+            return ApplyRights(legitimationUuid, pureRights, token);
         }
-        
+
         /// <summary>
         /// Register with rights from database and one additional right
         /// </summary>
-        /// <param name="legitimationId">associated legitimated id</param>
+        /// <param name="legitimationUuid">associated legitimated id</param>
         /// <param name="additionalRight"></param>
         /// <param name="token">optional pregiven token</param>
         /// <returns>the registered token</returns>
-        public async Task<string> Register(int legitimationId, PureRight additionalRight, string token = null)
+        public async Task<string> Register(string legitimationUuid, PureRight additionalRight, string token = null)
         {
-            List<PureRight> pureRights = await GetPureRights(legitimationId);
+            List<PureRight> pureRights = await GetPureRights(legitimationUuid);
             pureRights.Add(additionalRight);
-            return ApplyRights(legitimationId, pureRights, token);
+            return ApplyRights(legitimationUuid, pureRights, token);
         }
 
         /// <summary>
         /// Register with only rights from Database
         /// </summary>
-        /// <param name="legitimationId">associated legitimated id</param>
+        /// <param name="legitimationUuid">associated legitimated id</param>
         /// <param name="token">optional pregiven token</param>
         /// <returns>the registered token</returns>
-        public async Task<string> Register(int legitimationId, string token = null)
+        public async Task<string> Register(string legitimationUuid, string token = null)
         {
-            List<PureRight> pureRights = await GetPureRights(legitimationId);
-            return ApplyRights(legitimationId, pureRights, token);
+            List<PureRight> pureRights = await GetPureRights(legitimationUuid);
+            return ApplyRights(legitimationUuid, pureRights, token);
         }
 
         /// <summary>
@@ -97,10 +97,10 @@ namespace Beste.Rights
         /// <param name="legitimationId"></param>
         /// <param name="pureRights"></param>
         /// <returns></returns>
-        private string ApplyRights(int legitimationId, List<PureRight> pureRights, string token = null)
+        private string ApplyRights(string legitimationUuid, List<PureRight> pureRights, string token = null)
         {
-            string authorizedToken = token ?? GenerateToken(legitimationId);
-            RegisterToken(authorizedToken, legitimationId);
+            string authorizedToken = token ?? GenerateToken(legitimationUuid);
+            RegisterToken(authorizedToken, legitimationUuid);
             foreach(PureRight pureRight in pureRights)
             {
                 if (pureRight.Authorized == true)
@@ -116,27 +116,27 @@ namespace Beste.Rights
             return authorizedToken;
         }
 
-        private void RegisterToken(string authorizedToken, int legitimationId)
+        private void RegisterToken(string authorizedToken, string legitimationUuid)
         {
             if(!TokensForLegitimationIds.ContainsKey(authorizedToken))
             {
                 TokensForLegitimationIds.Add(authorizedToken, new BesteRightsToken
                 {
                     Namespace = BesteRightsNamespace,
-                    LegitimationId = legitimationId,
+                    LegitimationUuid = legitimationUuid,
                     Token = authorizedToken,
                     Ends = DateTime.Now
                 });
             }
         }
 
-        private string GenerateToken(int legitimationId)
+        private string GenerateToken(string legitimationUuid)
         {
             string token = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
             return token;
         }
 
-        private async Task<List<PureRight>> GetPureRights(int legitimationId)
+        private async Task<List<PureRight>> GetPureRights(string legitimationUuid)
         {
             return await AmazonDynamoDBFactory.ExecuteInTransactionContext(async (client, context) =>
             {
@@ -161,14 +161,14 @@ namespace Beste.Rights
                     ExpressionAttributeNames = new Dictionary<string, string>
                     {
                         { "#namespace", "Namespace" },
-                        { "#legitimationid", "LegitimationId" }
+                        { "#legitimationuuid", "LegitimationUuid" }
                     },
                     ExpressionAttributeValues = new Dictionary<string, AttributeValue>
                     {
                         { ":namespace", new AttributeValue { S = BesteRightsNamespace } },
-                        { ":legitimationid", new AttributeValue { N = legitimationId.ToString() } }
+                        { ":legitimationuuid", new AttributeValue { S = legitimationUuid } }
                     },
-                    FilterExpression = "#namespace = :namespace and #legitimationid = :legitimationid"
+                    FilterExpression = "#namespace = :namespace and #legitimationuuid = :legitimationuuid"
                 };
                 var response = await AmazonDynamoDBFactory.Client.QueryAsync(request);
                 foreach(var item in response.Items)
@@ -201,7 +201,7 @@ namespace Beste.Rights
             {
                 BesteRightsToken besteRightsToken = TokensForLegitimationIds[token];
                 string explaination = base.Explain(new string[] { token }, operation, resource + (resourceId == null ? "" : "_" + resourceId));
-                return explaination.Replace(token, token + " for " + besteRightsToken.LegitimationId);
+                return explaination.Replace(token, token + " for " + besteRightsToken.LegitimationUuid);
             }
             return "token='" + token + "' not registered";
         }

@@ -48,7 +48,7 @@ namespace Beste.Rights.Tests
         {
 
             RightControl rightControl = new RightControl("CheckRegister");
-            string token = await rightControl.Register(1);
+            string token = await rightControl.Register("1");
             if (!rightControl.IsGranted(token, "Add", "Authorizations"))
             {
                 Assert.Fail();
@@ -72,7 +72,7 @@ namespace Beste.Rights.Tests
             pureRight.Authorized = true;
             pureRight.Operation = "Edit";
             pureRight.RecourceModule = "Authorizations";
-            string token = await rightControl.Register(1, pureRight);
+            string token = await rightControl.Register("1", pureRight);
             if (!rightControl.IsGranted(token, "Add", "Authorizations"))
             {
                 Assert.Fail();
@@ -113,7 +113,7 @@ namespace Beste.Rights.Tests
                 RecourceModule = "SomethingElse"
             });
 
-            string token = await rightControl.Register(1, pureRights);
+            string token = await rightControl.Register("1", pureRights);
             if (rightControl.IsGranted(token, "Add", "Authorizations"))
             {
                 Assert.Fail();
@@ -158,7 +158,7 @@ namespace Beste.Rights.Tests
                 Operation = "AddServerSettings_" + "SomeUser",
                 RecourceModule = "ServerSetting"
             });
-            string otherToken = await rightControl.Register(1337, pureRights, token);
+            string otherToken = await rightControl.Register("1337", pureRights, token);
 
             if (!rightControl.IsGranted(token, "AddServerSettings_" + "SomeUser", "ServerSetting"))
             {
@@ -209,7 +209,7 @@ namespace Beste.Rights.Tests
                     Operation = "Delete",
                     RecourceModule = "Authorizations",
                     Authorized = false,
-                    LegitimationId = 1,
+                    LegitimationUuid = "1",
                     Uuid = Guid.NewGuid().ToString()
                 });
                 besteRightsAuthorizations.Add(new BesteRightsAuthorization
@@ -219,7 +219,7 @@ namespace Beste.Rights.Tests
                     Operation = "Add",
                     RecourceModule = "Authorizations",
                     Authorized = true,
-                    LegitimationId = 1,
+                    LegitimationUuid = "1",
                     Uuid = Guid.NewGuid().ToString()
                 });
                 foreach(var item in besteRightsAuthorizations)
