@@ -4,7 +4,7 @@ import { WebsocketProvider } from '../../providers/websocket-service';
 import { Subject, Subscription } from 'rxjs';
 import { FormGroup, FormControl, Validators } from '@angular/forms';
 import { Command, User, ModifyUserResponse } from '../../app/classes/classes';
-import { GlobalVars } from '../../providers/globalVars';
+import { GlobalVarsSDaysTDie } from '../../providers/globalVarsSDaysTDie';
 
 @Component({
   selector: 'page-change-password',
@@ -26,7 +26,7 @@ export class ChangePasswordPage implements OnInit {
     this.user = this.navParams.get('user');
     this.text = this.navParams.get('text');
     this.showAbort = this.navParams.get('showAbort') == "true" ? true : false;
-    this.logoutSubscription = GlobalVars.inactiveTimoutObservable.subscribe(value => {
+    this.logoutSubscription = GlobalVarsSDaysTDie.inactiveTimoutObservable.subscribe(value => {
       this.dismiss();
     });
   }
