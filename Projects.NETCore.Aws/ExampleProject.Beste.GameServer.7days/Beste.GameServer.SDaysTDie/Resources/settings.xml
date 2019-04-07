@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Settings>
+	<Endpoints>
+		<Endpoint>
+			<Host>localhost</Host>
+			<Port>443</Port>
+			<Scheme>https</Scheme>
+			<StoreName>My</StoreName>
+			<StoreLocation>CurrentUser</StoreLocation>
+		</Endpoint>
+    <Endpoint>
+      <Host>localhost</Host>
+      <Port>80</Port>
+      <Scheme>http</Scheme>
+    </Endpoint>
+    <!--
+		<Endpoint>
+			<Host>freelancer-belkot.eu</Host>
+			<Port>443</Port>
+			<Scheme>https</Scheme>
+			<StoreName>My</StoreName>
+			<StoreLocation>CurrentUser</StoreLocation>
+		</Endpoint>
+    -->
+	</Endpoints>
+</Settings>

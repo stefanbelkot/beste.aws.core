@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.28010.2048
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beste.GameServer.SDaysTDie", "Beste.GameServer.SDaysTDie\Beste.GameServer.SDaysTDie.csproj", "{D2814858-7375-45E3-AECC-9241DBA26570}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Testproject", "Testproject\Testproject.csproj", "{FAECCBEC-619D-4DEA-990B-C0C45EA87A69}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D2814858-7375-45E3-AECC-9241DBA26570}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D2814858-7375-45E3-AECC-9241DBA26570}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D2814858-7375-45E3-AECC-9241DBA26570}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D2814858-7375-45E3-AECC-9241DBA26570}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FAECCBEC-619D-4DEA-990B-C0C45EA87A69}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FAECCBEC-619D-4DEA-990B-C0C45EA87A69}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FAECCBEC-619D-4DEA-990B-C0C45EA87A69}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FAECCBEC-619D-4DEA-990B-C0C45EA87A69}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {A9714718-F475-4DBD-9E22-8406FB0105C3}
+	EndGlobalSection
+EndGlobal
