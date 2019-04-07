@@ -194,7 +194,7 @@ namespace Beste.Aws.Module
                 {
                     return new ModifyUserResponse(ModifyUserResult.USER_ALREADY_EXISTS, null, null, user);
                 }
-
+                user.Uuid = Guid.NewGuid().ToString();
                 user.WrongPasswordCounter = 0;
                 user.MustChangePassword = true;
                 user.SaltValue = random.Next(0, 1000000);
@@ -316,6 +316,7 @@ namespace Beste.Aws.Module
                     {
                         TableId = Convert.ToInt32( item["id"].N),
                         Username = item["username"].S,
+                        Uuid = item["Uuid"].S,
                         Firstname = item["Firstname"].S,
                         Lastname = item["Lastname"].S,
                         Email = item["Email"].S,
