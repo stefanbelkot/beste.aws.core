@@ -98,8 +98,19 @@ namespace Beste.Databases.Tests
                 Uuid = Guid.NewGuid().ToString(),
                 WrongPasswordCounter = 1
             };
-            await AmazonDynamoDBFactory.Context.SaveAsync(user);
-            User.User dbUser = await AmazonDynamoDBFactory.Context.LoadAsync(user);
+            await AmazonDynamoDBFactory.ExecuteInTransactionContext(async (client, context) =>
+            {
+                await context.SaveAsync(user);
+            });
+            User.User dbUser = await AmazonDynamoDBFactory.ExecuteInTransactionContext(async (client, context) =>
+            {
+                return await context.LoadAsync(user);
+            });
+            dbUser = await AmazonDynamoDBFactory.ExecuteInTransactionContext(async (client, context) =>
+            {
+                dbUser.TableId = TABLE_ID;
+                return await context.LoadAsync(dbUser);
+            });
             if (!dbUser.Equals(user))
                 Assert.Fail();
         }

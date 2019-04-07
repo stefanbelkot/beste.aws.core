@@ -112,23 +112,15 @@ namespace Beste.Aws.Databases.Connector
         /// <returns>the return type</returns>
         public static async Task<T> ExecuteInTransactionContext<T>(Func<IAmazonDynamoDB, IDynamoDBContext, Task<T>> body)
         {
-            using (IAmazonDynamoDB _client = Client)
-            using (IDynamoDBContext _context = Context)
+            try
             {
-                try
-                {
-                    return await body(_client, _context);
-                }
-                catch (ObjectDisposedException)
-                {
-                    client = null;
-                    context = null;
-                    using (IAmazonDynamoDB _clientNew = Client)
-                    using (IDynamoDBContext _contextNew = Context)
-                    {
-                        return await body(_client, _context);
-                    }
-                }
+                return await body(Client, Context);
+            }
+            catch (ObjectDisposedException)
+            {
+                client = null;
+                context = null;
+                return await body(Client, Context);
             }
         }
 
@@ -138,24 +130,15 @@ namespace Beste.Aws.Databases.Connector
         /// <param name="body">the function</param>
         public static async Task ExecuteInTransactionContext(Func<IAmazonDynamoDB, IDynamoDBContext, Task> body)
         {
-            using (IAmazonDynamoDB _client = Client)
-            using (IDynamoDBContext _context = Context)
+            try
             {
-                try
-                {
-                    await body(_client, _context);
-                }
-                catch (ObjectDisposedException)
-                {
-                    client = null;
-                    context = null;
-                    using (IAmazonDynamoDB _clientNew = Client)
-                    using (IDynamoDBContext _contextNew = Context)
-                    {
-                        await body(_clientNew, _contextNew);
-                    }
-
-                }
+                await body(Client, Context);
+            }
+            catch (ObjectDisposedException)
+            {
+                client = null;
+                context = null;
+                await body(Client, Context);
             }
         }
 

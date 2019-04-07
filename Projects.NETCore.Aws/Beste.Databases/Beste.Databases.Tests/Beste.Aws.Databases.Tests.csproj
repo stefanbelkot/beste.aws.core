@@ -17,10 +17,4 @@
     <ProjectReference Include="..\Beste.Databases.User\Beste.Aws.Databases.User.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Update="TestData\DBConnectionSettings.xml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
 </Project>
