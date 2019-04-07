@@ -1,0 +1,143 @@
+// http://ionicframework.com/docs/theming/
+
+
+// App Global Sass
+// --------------------------------------------------
+// Put style rules here that you want to apply globally. These
+// styles are for the entire app and not just one component.
+// Additionally, this file can be also used as an entry point
+// to import other Sass files to be included in the output CSS.
+//
+// Shared Sass variables, which can be used to adjust Ionic's
+// default Sass variables, belong in "theme/variables.scss".
+//
+// To declare rules for a specific mode, create a child rule
+// for the .md, .ios, or .wp mode classes. The mode class is
+// automatically applied to the <body> element in the app.
+body {
+	-webkit-user-select: text;
+	-moz-user-select: text;
+	-ms-user-select: text;
+	user-select: text;
+	}
+ion-content ion-card-header {
+	color: color($colors, primary) !important;
+	background: color($colors, primary) !important;
+}
+ion-navbar.toolbar.toolbar-md {
+	background: black !important;
+}
+
+
+ion-footer{
+	text-align: center;
+	font-size: 12px;
+	color: color($font, contentPrimary) !important;
+	background-color: color($backgrounds, header);
+	button {
+		background-color: rgba(0,0,0,0);
+		color: lightblue;
+		font-size: 12px;
+		padding: 0;
+		text-decoration: underline;
+	  }
+}
+
+.toolbar-background-md{
+    background: color($backgrounds, header) !important;
+}
+
+.toolbar-title-md{
+	color: color($font, contentPrimary) !important;
+}
+
+.bar-button-default-md, .bar-button-clear-md-default, .bar-button-md-default{
+	color: color($font, contentPrimary) !important;
+}
+
+.content-md{
+	color: color($font, contentPrimary) !important;
+    background: color($backgrounds, header);
+    background-image: linear-gradient(to bottom right, color($backgrounds, contentPrimary), color($backgrounds, contentSecondary));
+}
+
+.item-md{
+	background-image: linear-gradient(to bottom right, color($backgrounds, contentPrimary), color($backgrounds, contentSecondary));
+	color: color($font, contentPrimary) !important;
+}
+.item-inner .item{
+	border-bottom: none;
+}
+ion-content{
+		div.item-inner{
+			border-bottom: none !important;
+
+		}
+
+}
+a {
+	color: color($font, contentSecondary) !important;
+}
+// background-image: linear-gradient(to bottom right, red, yellow);
+
+::-webkit-scrollbar-track
+{
+-webkit-box-shadow: inset 0 0 6px rgba(0,0,0,0.3) !important;
+box-shadow: inset 0 0 6px rgba(0,0,0,0.3) !important;
+border-radius: 20px!important;
+background-color: rgb(96, 96, 96)!important;
+}
+
+::-webkit-scrollbar
+{
+width: 20px!important;
+background-color: rgb(200, 200, 200)!important;
+}
+
+::-webkit-scrollbar-thumb
+{
+border-radius: 20px!important;
+-webkit-box-shadow: inset 0 0 6px rgba(0,0,0,.3)!important;
+box-shadow: inset 0 0 6px rgba(0,0,0,0.3) !important;
+background-color: rgb(128, 128, 128)!important;
+}
+
+
+ion-title.title-group-mobile {
+	display: none !important;
+}
+@media only screen and (max-width:945px), screen and (max-height:400px) { 
+	ion-title.title-group  {
+	   display: none !important;;
+	}
+	ion-title.title-group-mobile {
+		display:inline-block !important;
+	}
+}
+
+
+
+ion-title {
+	.title-group-mobile {
+		display: none !important;
+	}
+	@media only screen and (max-width:945px), screen and (max-height:400px) { 
+		.title-group{
+		   display: none !important;;
+		}
+		.title-group-mobile{
+			color: black; 
+			font-size: 13px !important;
+			display:inline-block;
+			width: 6em;
+			height: 3em !important;
+			padding-top: 0;
+			cursor: pointer;
+		}
+	}
+}
+
+.subPages{
+	margin-left:2em
+}
+

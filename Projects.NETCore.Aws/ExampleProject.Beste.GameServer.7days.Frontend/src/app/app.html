@@ -1,0 +1,41 @@
+<ion-menu [content]="content">
+  <ion-header>
+    <ion-toolbar>
+      <ion-title>Menu</ion-title>
+    </ion-toolbar>
+  </ion-header>
+
+  <ion-content>
+    <ion-list>
+      
+        <div *ngFor="let p of pages" >
+          <!-- menu button without subpages -->
+          <button *ngIf="p.Visible && !p.SubPages" menuClose ion-item  (click)="openPage(p)">
+            {{p.Title}}
+          </button>
+          <button *ngIf="p.Visible && p.SubPages" ion-item  (click)="openPage(p)">
+            {{p.Title}}
+          </button>
+          <div class="subPages" *ngFor="let sp of p.SubPages">
+            
+            <button *ngIf="sp.Visible && p.SubPagesOpen" menuClose ion-item  (click)="openPage(sp)">
+              {{sp.Title}}
+            </button>
+            <!-- something with icons:
+            <button menuClose ion-item item-md *ngFor="let p of this.adminSubPages" [ngClass]="p.active ? 'item-active' : ''" (click)="openPage(p)">
+              <ion-icon item-start name="{{p.icon}}"></ion-icon>{{p.title}}
+            </button>
+             -->
+          </div>
+        </div>
+          
+    </ion-list>
+  </ion-content>
+
+</ion-menu>
+
+<!-- Disable swipe-to-go-back because it's poor UX to combine STGB with side menus -->
+<ion-nav [root]="rootPage" #content swipeBackEnabled="false"></ion-nav>
+
+
+

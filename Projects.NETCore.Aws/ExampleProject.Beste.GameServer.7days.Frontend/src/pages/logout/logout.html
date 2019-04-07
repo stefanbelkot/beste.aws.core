@@ -1,0 +1,29 @@
+<ion-header>
+  <ion-navbar>
+    <button ion-button menuToggle>
+      <ion-icon name="menu"></ion-icon>
+    </button>
+    <ion-title class="title-group">BeSte Software - 7days2die</ion-title>
+    <ion-title class="title-group-mobile">7days2die</ion-title>
+  </ion-navbar>
+</ion-header>
+
+<ion-content padding>
+  <h3>Logout</h3>
+
+</ion-content>
+<ion-footer>
+  <p>Beste Software - <button button-full (tap)="toggleImpressum()">Impressum</button></p>
+  <div *ngIf="this.impressumVisible">
+      <p class="bodytext">Stefan Belkot<br>Ebing 112<br>84478 Waldkraiburg
+      </p>
+      <p class="bodytext">Telefon 0163 62 99 646
+      </p>
+      <p class="bodytext">Email: contact(at)bestesoftware.eu
+      </p>
+      <p class="bodytext">Full-Stack Software Developer
+      </p>
+      <p class="bodytext">Umsatzsteuer-ID: tbd
+      </p>
+  </div>
+</ion-footer>

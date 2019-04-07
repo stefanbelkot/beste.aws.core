@@ -1,0 +1,186 @@
+<ion-header>
+  <ion-navbar>
+    <button ion-button menuToggle>
+      <ion-icon name="menu"></ion-icon>
+    </button>
+    <ion-title class="title-group">BeSte Software - 7days2die</ion-title>
+    <ion-title class="title-group-mobile">7days2die</ion-title>
+  </ion-navbar>
+</ion-header>
+
+<ion-content padding>
+  <h3>Users</h3>
+
+  <div *ngIf="!this.loggedIn" class="loginFormat">
+    <ion-grid>
+        <h1>Login:</h1>
+        <ion-row justify-content-center>
+          <ion-col col-sm-12 col-md-8 col-lg-4>
+            <div class="signin-container">
+              <form (ngSubmit)="signin()" [formGroup]="inputSignin" >
+                <input class="signing-input" type="text" placeholder="Username"   formControlName="username" />
+                <input class="signing-input" type="password" placeholder="Password" formControlName="password" />
+                <ion-item *ngIf="inputSignin.hasError('authenticationError')">
+                    <strong class="errorMsg" >{{ this.loginErrorMessage }}</strong>
+                </ion-item>
+                <button type="submit" class="submit-button" [disabled]="!inputSignin.valid" ion-button full>Login</button>
+              </form>
+            </div>
+          </ion-col>
+        </ion-row>
+      </ion-grid>
+  </div>
+  
+  <div *ngIf="this.loggedIn" class="loginFormat">
+    <ion-grid>
+      <h1>Your User Data</h1>
+      <ion-item *ngIf="this.loggedIn">
+          <button type="button" class="submit-button" (click)="changePassword()" ion-button full>Change Password</button>
+      </ion-item> 
+      <ion-row justify-content-center>
+        <ion-col col-sm-20 col-md-20 col-lg-20>
+          <ion-list class="accordion-list">
+            <ion-list-header no-lines no-padding>
+                <!-- Toggle Button -->
+                <button ion-item (click)="toggleMyUserSection()" detail-none [ngClass]="section-active">
+                  <ion-icon item-left name="arrow-down" ></ion-icon>
+                    My User
+                </button>
+                
+                <form (ngSubmit)="updateMyUser()" [formGroup]="myInputUser">
+                    <ion-list *ngIf="myUser.open" detail-none class="child-item" text-wrap>
+                      <ion-item>
+                        <ion-label>User Name:</ion-label>
+                        <ion-input type="text" formControlName="username" readonly></ion-input>
+                      </ion-item>
+                      <ion-item>
+                        <ion-label>Last Name:</ion-label>
+                        <ion-input type="text" formControlName="lastname"></ion-input>
+                      </ion-item>   
+                      <ion-item>
+                        <ion-label>First Name:</ion-label>
+                        <ion-input type="text" formControlName="firstname"></ion-input>
+                      </ion-item>   
+                      <ion-item>
+                        <ion-label>E-Mail:</ion-label>
+                        <ion-input type="text" formControlName="email"></ion-input>
+                      </ion-item>   
+                      <ion-item>
+                          <button type="submit" class="submit-button" ion-button full>Save</button>
+                      </ion-item>               
+                    </ion-list>
+                </form>
+            </ion-list-header>
+          </ion-list>
+        </ion-col>
+      </ion-row>
+    </ion-grid>
+    <ion-grid *ngIf="hasGetUsersRight||hasCreateUserRight">
+      <h1>User Management</h1>
+      <ion-row *ngIf="hasGetUsersRight" justify-content-center>
+        <ion-col col-sm-20 col-md-20 col-lg-20>
+          <ion-list class="accordion-list">
+            <!-- First Level -->
+            <ion-list-header *ngFor="let item of users; let i = index" no-lines no-padding>
+              <!-- Toggle Button -->
+              <button ion-item (click)="toggleSection(i)" detail-none [ngClass]="{'section-active': item.open, 'section': !item.open}">
+                <ion-icon item-left name="arrow-forward" *ngIf="!item.open"></ion-icon>
+                <ion-icon item-left name="arrow-down" *ngIf="item.open"></ion-icon>
+                  {{ item.Username }}
+              </button>
+              
+              <form (ngSubmit)="updateUser(i)" [formGroup]="inputUsers[i]">
+
+                <ion-list *ngIf="item.open" detail-none text-wrap>
+                  <ion-item>
+                    <ion-label>User Name:</ion-label>
+                    <ion-input type="text" class="my-input" formControlName="username" readonly></ion-input>
+                  </ion-item>
+                  <ion-item>
+                    <ion-label>Last Name:</ion-label>
+                    <ion-input type="text" class="my-input" formControlName="lastname"></ion-input>
+                  </ion-item>   
+                  <ion-item>
+                    <ion-label>First Name:</ion-label>
+                    <ion-input type="text" formControlName="firstname"></ion-input>
+                  </ion-item>   
+                  <ion-item>
+                    <ion-label>E-Mail:</ion-label>
+                    <ion-input type="text" formControlName="email"></ion-input>
+                  </ion-item>
+                  <ion-item>
+                    <ion-label>Password:</ion-label>
+                    <ion-input type="password" formControlName="password"></ion-input>
+                  </ion-item>  
+                  <ion-item>
+                      <button type="submit" class="submit-button" ion-button full>Save</button>
+                  </ion-item>      
+                  <ion-item>
+                      <button type="button" class="submit-button" (click)="deleteUser(i)" ion-button full>Delete</button>
+                  </ion-item>     
+                </ion-list>
+              </form> 
+            </ion-list-header>
+          </ion-list>
+        </ion-col>
+      </ion-row>
+      <ion-row *ngIf="hasCreateUserRight" justify-content-center>
+        <ion-col col-sm-20 col-md-20 col-lg-20>
+          <ion-list class="accordion-list">
+            <ion-list-header *ngIf="hasCreateUserRight" no-lines no-padding>
+                <!-- Toggle Button -->
+                <button ion-item (click)="toggleNewUserSection()" detail-none [ngClass]="{'section-active': newUser.open, 'section': !newUser.open}">
+                  <ion-icon item-left name="arrow-forward" *ngIf="!newUser.open"></ion-icon>
+                  <ion-icon item-left name="arrow-down" *ngIf="newUser.open"></ion-icon>
+                    New User
+                </button>
+                
+                <form (ngSubmit)="addUser()" [formGroup]="newInputUser">
+                    <ion-list *ngIf="newUser.open" detail-none class="child-item" text-wrap>
+                      <ion-item>
+                        <ion-label>User Name:</ion-label>
+                        <ion-input type="text" formControlName="username"></ion-input>
+                      </ion-item>
+                      <ion-item>
+                        <ion-label>Last Name:</ion-label>
+                        <ion-input type="text" formControlName="lastname"></ion-input>
+                      </ion-item>   
+                      <ion-item>
+                        <ion-label>First Name:</ion-label>
+                        <ion-input type="text" formControlName="firstname"></ion-input>
+                      </ion-item>   
+                      <ion-item>
+                        <ion-label>E-Mail:</ion-label>
+                        <ion-input type="text" formControlName="email"></ion-input>
+                      </ion-item>
+                      <ion-item>
+                        <ion-label>Password:</ion-label>
+                        <ion-input type="password" formControlName="password"></ion-input>
+                      </ion-item>      
+                      <ion-item>
+                          <button type="submit" class="submit-button" ion-button full>Save</button>
+                      </ion-item>               
+                    </ion-list>
+                </form>
+            </ion-list-header>
+          </ion-list>
+        </ion-col>
+      </ion-row>
+    </ion-grid>
+  </div>
+</ion-content>
+<ion-footer>
+  <p>Beste Software - <button button-full (tap)="toggleImpressum()">Impressum</button></p>
+  <div *ngIf="this.impressumVisible">
+      <p class="bodytext">Stefan Belkot<br>Ebing 112<br>84478 Waldkraiburg
+      </p>
+      <p class="bodytext">Telefon 0163 62 99 646
+      </p>
+      <p class="bodytext">Email: contact(at)bestesoftware.eu
+      </p>
+      <p class="bodytext">Full-Stack Software Developer
+      </p>
+      <p class="bodytext">Umsatzsteuer-ID: tbd
+      </p>
+  </div>
+</ion-footer>

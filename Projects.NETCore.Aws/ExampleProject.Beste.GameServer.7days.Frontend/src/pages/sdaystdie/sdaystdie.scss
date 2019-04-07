@@ -1,0 +1,98 @@
+page-sdaystdie {
+	//test background
+	ion-header{
+		background-color: color($colors, primary) !important;
+		img {
+			display: block;
+    	margin-left: auto;
+		margin-right: auto;
+		width:50%;	
+		}
+	}
+    ion-content {
+
+        background-color: color($backgrounds, contentSecondary) !important;
+		background: linear-gradient(color($colors, primary), color($backgrounds, contentSecondary)) !important;
+	}
+	//end
+
+	.errorMsg{
+		white-space:pre-wrap;
+	}
+	
+	.signin-container {
+		margin: 0% 0;
+	}
+
+	.signing-input {
+		text-align: left !important;
+	}
+
+	.no-scroll .scroll-content{
+		overflow: hidden;
+		display: flex!important;
+		align-content: center!important;
+		align-items: center!important;	
+   }
+	h1 {
+		bottom: 0px;
+		right: 0px;
+		left: 0px;
+		color: white;
+		text-align: center;
+		font-size: 50px;
+		margin: 0 10;
+	}
+	
+	ion-item {
+		color: red !important;
+		font-size: small !important;
+        background-color: transparent !important;
+		border: none !important;
+		padding: 0 !important;
+	}
+
+	ion-item .item-inner {
+		border: none !important;
+	}
+	ion-item.ServerLog{
+		.label-md {
+			white-space: pre-wrap;
+		}
+      }
+
+
+	input{
+		font-size: 1.6rem;
+		width: 100%;
+		background-color: color($backgrounds, header);
+		color: color($font, contentPrimary);
+		padding: 15px;
+		border: none;
+		border-radius: 10px;
+		text-align: right;
+	}
+
+	div {
+		.select-text {
+			font-size: 1.6rem;
+		}
+	}
+
+    input[type="text"] {
+        margin: 0 0 0 0;
+    }
+
+    input[type="password"] {
+        margin: 15px 0 20px 0;
+	}
+
+	.submit-button {
+        box-shadow: none;
+		border-radius: 10px;
+		color: white;
+		background-color: black;
+		width: 90%;
+		margin: 0 5%;
+	}
+}
