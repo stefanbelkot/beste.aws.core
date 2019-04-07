@@ -81,28 +81,23 @@ namespace Beste.Databases.Tests
         }
 
         [TestMethod]
-        public void ReGenerateTestTables()
-        {
-            Assert.Inconclusive("No Regeneration of the Tables implemented for now. To implement: Complete Clean-Up of AWS tables for the UnitTest");
-        }
-
-        [TestMethod]
         public async Task WriteInTestTable_User()
         {
             ActivateTestSchema();
             User.User user = null;
-                user = new User.User
-                {
-                    TableId = TABLE_ID,
-                    Firstname = "Firstname",
-                    Lastname = "Lastname",
-                    Username = "Username",
-                    Email = "Email",
-                    MustChangePassword = true,
-                    Password = "Password",
-                    SaltValue = 1,
-                    WrongPasswordCounter = 1
-                };
+            user = new User.User
+            {
+                TableId = TABLE_ID,
+                Firstname = "Firstname",
+                Lastname = "Lastname",
+                Username = "Username",
+                Email = "Email",
+                MustChangePassword = true,
+                Password = "Password",
+                SaltValue = 1,
+                Uuid = Guid.NewGuid().ToString(),
+                WrongPasswordCounter = 1
+            };
             await AmazonDynamoDBFactory.Context.SaveAsync(user);
             User.User dbUser = await AmazonDynamoDBFactory.Context.LoadAsync(user);
             if (!dbUser.Equals(user))
@@ -148,6 +143,7 @@ namespace Beste.Databases.Tests
                 MustChangePassword = true,
                 Password = "Password",
                 SaltValue = 1,
+                Uuid = Guid.NewGuid().ToString(),
                 WrongPasswordCounter = 1
             };
             await AmazonDynamoDBFactory.Context.SaveAsync(user);

@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netcoreapp2.1</TargetFramework>
-    <Version>0.1.1-rc</Version>
+    <Version>0.1.2-rc</Version>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Copyright>2019 Beste Software</Copyright>
     <AssemblyName>Beste.Aws.Databases.Connector</AssemblyName>

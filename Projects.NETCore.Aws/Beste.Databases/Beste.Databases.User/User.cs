@@ -17,6 +17,7 @@ namespace Beste.Databases.User {
         [DynamoDBRangeKey]
         [DynamoDBProperty("username")]
         public virtual string Username { get; set; }
+        public virtual string Uuid { get; set; }
         public virtual string Firstname { get; set; }
         public virtual string Lastname { get; set; }
         public virtual string Email { get; set; }
