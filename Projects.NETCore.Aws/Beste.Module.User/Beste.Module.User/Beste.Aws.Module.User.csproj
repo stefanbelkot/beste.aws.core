@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netcoreapp2.1</TargetFramework>
     <AssemblyName>Beste.Aws.Module.User</AssemblyName>
-    <Version>0.1.3-rc</Version>
+    <Version>0.1.4-rc</Version>
     <Copyright>2019 - Beste Software</Copyright>
     <Description>Library to manage users in Beste Software modules</Description>
     <PackageReleaseNotes></PackageReleaseNotes>
@@ -17,7 +17,7 @@
   </Target>
 
   <ItemGroup>
-    <PackageReference Include="Beste.Aws.Databases.Connector" Version="0.1.3-rc" />
+    <PackageReference Include="Beste.Aws.Databases.Connector" Version="0.1.4-rc" />
     <PackageReference Include="Beste.Aws.Databases.User" Version="0.1.2-rc" />
     <PackageReference Include="Beste.Core.Models" Version="0.1.1" />
     <PackageReference Include="Beste.Xml" Version="0.1.4" />
