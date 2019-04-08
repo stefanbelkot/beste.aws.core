@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DataModel;
+using System.IO;
 
 namespace Beste.Databases.Tests
 {
@@ -132,9 +133,27 @@ namespace Beste.Databases.Tests
         }
 
         [TestMethod]
-        public void WriteDefaultDBSettings()
+        public async Task GenerateConfigFileAndUseOtherAwsEndpoint()
         {
-            Assert.Inconclusive("WriteDefaultDBSettings invalid! Because we won't add our AWS key+secred to the project!");
+            AmazonDynamoDBFactory.ResetFactory();
+            AwsConfig awsConfig = new AwsConfig();
+            string pathToConfig = "config" + Path.DirectorySeparatorChar;
+            string configFileName = "configAws.xml";
+            if (!Directory.Exists(pathToConfig))
+            {
+                Directory.CreateDirectory(pathToConfig);
+            }
+            if (File.Exists(pathToConfig + configFileName))
+            {
+                File.Delete(pathToConfig + configFileName);
+            }
+            awsConfig = new AwsConfig
+            {
+                RegionEndpoint = "USEast1"
+            };
+            awsConfig.SaveToFile(pathToConfig + configFileName);
+            await WriteInTestTableFunctionalProgramming_User();
+            File.Delete(pathToConfig + configFileName);
         }
 
         public void ActivateTestSchema()

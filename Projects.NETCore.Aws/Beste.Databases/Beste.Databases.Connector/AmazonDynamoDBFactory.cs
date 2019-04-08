@@ -16,70 +16,61 @@ namespace Beste.Aws.Databases.Connector
     {
         private static IAmazonDynamoDB client = null;
         private static DynamoDBContext context = null;
+        private static RegionEndpoint RegionEndpoint = null;
 
+
+        /// <summary>
+        /// Returns and if needed generates the AmazonDynamoDB client
+        /// </summary>
+        /// <returns>the AmazonDynamoDB client</returns>
         public static IAmazonDynamoDB Client
         {
             get
             {
                 if (client == null)
                 {
-                    //todo: being able to use other than default hardcoded settings use GetSettings
-                    //string connectionString = GetSettings();
                     AmazonDynamoDBConfig clientConfig = new AmazonDynamoDBConfig();
-                    // This client will access the US East 1 region.
-                    clientConfig.RegionEndpoint = RegionEndpoint.USEast2;
-                    client = new AmazonDynamoDBClient(clientConfig);
-                }
-                try
-                {
-                    var anyProp = client.Config;
-                }
-                catch
-                {
-                    //todo: being able to use other than default hardcoded settings use GetSettings
-                    //string connectionString = GetSettings();
-                    AmazonDynamoDBConfig clientConfig = new AmazonDynamoDBConfig();
-                    // This client will access the US East 1 region.
-                    clientConfig.RegionEndpoint = RegionEndpoint.USEast2;
+                    if (RegionEndpoint == null)
+                        RegionEndpoint = GetRegionEndpointFromSettings();
+                    clientConfig.RegionEndpoint = RegionEndpoint;
                     client = new AmazonDynamoDBClient(clientConfig);
                 }
                 return client;
             }
-            set => client = value;
+            private set => client = value;
         }
-        public static bool ClientIsDisposed(IAmazonDynamoDB client)
+
+        private static RegionEndpoint GetRegionEndpointFromSettings()
         {
-            BindingFlags bfIsDisposed = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.GetProperty;
-            // Retrieve a FieldInfo instance corresponding to the field
-            PropertyInfo field = client.GetType().GetProperty("_disposed", bfIsDisposed);
-
-            // Retrieve the value of the field, and cast as necessary
-            return (bool)field.GetValue(client, null);
+            AwsConfig awsConfig = new AwsConfig();
+            string pathToConfig = "config" + Path.DirectorySeparatorChar;
+            string configFileName = "configAws.xml";
+            if (Directory.Exists(pathToConfig) && File.Exists(pathToConfig + configFileName))
+            {
+                try
+                {
+                    awsConfig = Beste.Xml.Xml.LoadFromFile<AwsConfig>(pathToConfig + configFileName);
+                }
+                catch(Exception ex)
+                {
+                    Console.WriteLine(ex.ToString());
+                }
+            }
+            return awsConfig.GetRegionEndpoint();
         }
-        private static string GetSettings()
-        {
-            throw new NotImplementedException();
-        }
-
-        private static void CreateDefaultSettings(string settingsPath)
-        {
-            throw new NotImplementedException();
-        }
-
-
 
         /// <summary>
-        /// Returns a session of the already configured FluentNhibernate SessionFactory
+        /// Returns and if needed generates the DynamoDBContext
         /// </summary>
-        /// <returns>a session</returns>
+        /// <returns>the DynamoDBContext</returns>
         public static IDynamoDBContext Context
         {
             get
             {
-                //if (context == null)
-                //{
+                if (context == null)
+                {
                     context = new DynamoDBContext(Client);
-                //}
+                }
                 return context;
             }
             private set => context = (DynamoDBContext)value;
@@ -97,11 +88,12 @@ namespace Beste.Aws.Databases.Connector
         }
 
         /// <summary>
-        /// Resets the factory in case other connection, other mappings, etc. needed
+        /// Resets the factory in case other connection etc. needed
         /// </summary>
         public static void ResetFactory()
         {
             client = null;
+            context = null;
         }
 
         /// <summary>
