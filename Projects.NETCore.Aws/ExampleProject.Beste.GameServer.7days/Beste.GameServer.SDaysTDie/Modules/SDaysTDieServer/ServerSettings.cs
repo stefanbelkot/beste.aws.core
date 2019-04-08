@@ -8,7 +8,6 @@ namespace Beste.GameServer.SDaysTDie.Modules
     using Amazon.DynamoDBv2.Model;
     using Beste.Databases.User;
     using Beste.GameServer.SDaysTDie.Modules.Types;
-    using FluentNHibernate.Mapping;
     using System;
     using System.Diagnostics;
     using System.IO;

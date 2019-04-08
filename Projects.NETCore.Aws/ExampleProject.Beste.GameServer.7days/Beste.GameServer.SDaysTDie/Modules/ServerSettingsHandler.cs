@@ -9,7 +9,6 @@ using Beste.GameServer.SDaysTDie.Connections;
 using Beste.Rights;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
-using NHibernate;
 using System;
 using System.Collections.Generic;
 using System.Text;

@@ -1,6 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <_LastSelectedProfileId>R:\Beste.GameServer.7days\projects\Backend\Beste.GameServer.SDaysTDie\Properties\PublishProfiles\FolderProfile1.pubxml</_LastSelectedProfileId>
+    <_LastSelectedProfileId>R:\Beste.Core.Aws\Projects.NETCore.Aws\ExampleProject.Beste.GameServer.7days\Beste.GameServer.SDaysTDie\Properties\PublishProfiles\FolderProfile1.pubxml</_LastSelectedProfileId>
+    <ShowAllFiles>false</ShowAllFiles>
   </PropertyGroup>
 </Project>

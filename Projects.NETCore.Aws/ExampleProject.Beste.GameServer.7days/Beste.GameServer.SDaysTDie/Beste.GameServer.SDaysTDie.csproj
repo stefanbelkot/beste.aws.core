@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -17,12 +17,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Beste.Aws.Databases.Connector" Version="0.1.3-rc" />
-    <PackageReference Include="Beste.Aws.Module.User" Version="0.1.3-rc" />
-    <PackageReference Include="Beste.Aws.Rights" Version="0.1.3-rc" />
+    <PackageReference Include="Beste.Aws.Databases.Connector" Version="0.1.4-rc" />
+    <PackageReference Include="Beste.Aws.Module.User" Version="0.1.4-rc" />
+    <PackageReference Include="Beste.Aws.Rights" Version="0.1.4-rc" />
     <PackageReference Include="Beste.Core.Models" Version="0.1.1" />
     <PackageReference Include="Beste.Xml" Version="0.1.4" />
-    <PackageReference Include="FluentNHibernate" Version="2.1.2" />
     <PackageReference Include="Microsoft.AspNetCore" Version="2.2.0" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc" Version="2.2.0" />
     <PackageReference Include="Microsoft.AspNetCore.WebSockets" Version="2.2.0" />
@@ -30,6 +29,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="config\configAws.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="Files\serverconfig.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
