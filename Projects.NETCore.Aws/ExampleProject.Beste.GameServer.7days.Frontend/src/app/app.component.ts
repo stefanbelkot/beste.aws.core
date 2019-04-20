@@ -7,7 +7,6 @@ import { Page, User } from './classes/classes';
 import { SdaystdiePage } from '../pages/sdaystdie/sdaystdie';
 import { SdaystdieUserPage } from '../pages/sdaystdieUser/sdaystdieUser';
 import { LogoutPage } from '../pages/logout/logout';
-import { GlobalVars } from '../providers/globalVars';
 import { GlobalVarsSDaysTDie } from '../providers/globalVarsSDaysTDie';
 
 @Component({
