@@ -578,7 +578,9 @@ namespace Beste.GameServer.SDaysTDie.Modules
             List<ServerSetting> serverSettings = new List<ServerSetting>();
             response.Items.ForEach(item =>
             {
-                serverSettings.Add(ServerSetting.FromDynamoDbDictionary(item));
+                ServerSetting serverSetting = ServerSetting.FromDynamoDbDictionary(item);
+                serverSetting.IsRunning = SDaysTDieServerHandler.IsServerRunningBySeed(serverSetting.WorldGenSeed);
+                serverSettings.Add(serverSetting);
             });
             return new GetSettingsResponse(GetSettingsResult.OK, serverSettings);
         }
