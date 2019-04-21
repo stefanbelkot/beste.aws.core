@@ -2,6 +2,7 @@
 using Beste.Databases.User;
 using Beste.GameServer.SDaysTDie.Connections;
 using Beste.GameServer.SDaysTDie.Extensions;
+using Beste.GameServer.SDaysTDie.Models;
 using Beste.Rights;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
@@ -201,8 +202,14 @@ namespace Beste.GameServer.SDaysTDie.Modules
                 {
                     return new StartServerResponse(StartServerResult.NO_FREE_PORT);
                 }
-                serverSettings.SaveToFile(SDaysToDiePath + SEP + serverSettings.ServerConfigFilepath);
-                SDaysTDieServersByUserIds.Add(serverSettings.UserUuid, new SDaysTDieServer(SDaysToDiePath, serverSettings));
+                string sDaysToDiePath = SDaysToDiePath;
+                if(serverSettings.GameMod != "" && serverSettings.GameMod != "Default")
+                {
+                    sDaysToDiePath = GetGameFilesPathByGameMod(serverSettings.GameMod);
+                    Console.WriteLine("Start Server from Path: '" + sDaysToDiePath + "'");
+                }
+                serverSettings.SaveToFile(sDaysToDiePath + SEP + serverSettings.ServerConfigFilepath);
+                SDaysTDieServersByUserIds.Add(serverSettings.UserUuid, new SDaysTDieServer(sDaysToDiePath, serverSettings));
                 SDaysTDieServersByUserIds[serverSettings.UserUuid].Start();
                 response = new StartServerResponse(StartServerResult.SERVER_STARTED);
             }
@@ -214,6 +221,28 @@ namespace Beste.GameServer.SDaysTDie.Modules
             return response;
         }
 
+        private static string GetGameFilesPathByGameMod(string gameMod)
+        {
+            try
+            {
+                GameMods gameMods = GameMods.LoadFromFile<GameMods>(@"config" + SEP + "gamemods.xml");
+                GameMod ConfiguredGameMod = gameMods.ConfiguredGameMods.SingleOrDefault(name => name.ModName == gameMod);
+                if(Directory.Exists(ConfiguredGameMod.PathToGameFiles))
+                {
+                    if(File.Exists(ConfiguredGameMod.PathToGameFiles + SEP + "7daystodie.exe"))
+                    {
+                        return ConfiguredGameMod.PathToGameFiles;
+                    }
+                }
+                Console.WriteLine("Could not extract GameMods GameFiles Path! Set default!");
+                return SDaysToDiePath;
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine("Could not extract GameMods GameFiles Path! Set default! Exception: " + ex.ToString());
+                return SDaysToDiePath;
+            }
+        }
 
         private static StartServerResponse ExtractNotOKGetSettingsResult(StartServerResponse response, GetSettingsResponse getSettingsResponse)
         {

@@ -11,7 +11,6 @@ using Beste.Module;
 using Beste.Rights;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Newtonsoft.Json;
-using NHibernate;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;

@@ -9,7 +9,6 @@ using Beste.Rights;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Newtonsoft.Json;
-using NHibernate;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -87,6 +86,52 @@ namespace Testproject
             foreach(var item in getResponse.ServerSettings)
             {
                 if(serverSettings.WorldGenSeed == item.WorldGenSeed)
+                {
+                    serverSettings = item;
+                    foundServerSetting = true;
+                }
+            }
+            if (!foundServerSetting)
+                Assert.Fail("Added ServerSettingsId not found in response");
+
+            command = new Command("StartServer", serverSettings);
+            await TestHelper.ExecuteCommandAndAwaitResponse(webSocket, webSocketHandler, command);
+            StartServerResponse startResponse = JsonConvert.DeserializeObject<StartServerResponse>(webSocketHandler.ReceivedCommand.CommandData.ToString());
+            TestHelper.ValiateResponse(startResponse, StartServerResult.SERVER_STARTED);
+
+            command = new Command("StopServer", serverSettings);
+            await TestHelper.ExecuteCommandAndAwaitResponse(webSocket, webSocketHandler, command);
+            StopServerResponse stopResponse = JsonConvert.DeserializeObject<StopServerResponse>(webSocketHandler.ReceivedCommand.CommandData.ToString());
+            TestHelper.ValiateResponse(stopResponse, StopServerResult.SERVER_STOPPED);
+
+        }
+
+
+        [TestMethod]
+        public async Task StartAndShutdownServerWithGameMod()
+        {
+            ClientWebSocket webSocket = new ClientWebSocket();
+            WebSocketHandler webSocketHandler = new WebSocketHandler(webSocket);
+            await webSocket.ConnectAsync(new Uri("ws://localhost:80/ws"), CancellationToken.None);
+
+            await TestHelper.Login("User", "Passwort1$", webSocket, webSocketHandler);
+
+            ServerSetting serverSettings = TestHelper.GenerateNewServerSetting();
+            serverSettings.GameMod = "FastProgress";
+            Command command = new Command("AddServerSetting", serverSettings);
+            await TestHelper.ExecuteCommandAndAwaitResponse(webSocket, webSocketHandler, command);
+            ModifySettingsResponse modifyResponse = JsonConvert.DeserializeObject<ModifySettingsResponse>(webSocketHandler.ReceivedCommand.CommandData.ToString());
+            TestHelper.ValiateResponse(modifyResponse, ModifySettingsResult.SETTING_ADDED);
+
+            command = new Command("GetServerSettingsOfLoggedInUser", null);
+            await TestHelper.ExecuteCommandAndAwaitResponse(webSocket, webSocketHandler, command);
+            GetSettingsResponse getResponse = JsonConvert.DeserializeObject<GetSettingsResponse>(webSocketHandler.ReceivedCommand.CommandData.ToString());
+            TestHelper.ValiateResponse(getResponse, GetSettingsResult.OK);
+
+            bool foundServerSetting = false;
+            foreach (var item in getResponse.ServerSettings)
+            {
+                if (serverSettings.WorldGenSeed == item.WorldGenSeed)
                 {
                     serverSettings = item;
                     foundServerSetting = true;

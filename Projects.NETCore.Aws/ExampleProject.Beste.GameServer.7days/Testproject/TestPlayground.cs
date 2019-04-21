@@ -2,6 +2,7 @@
 using Beste.Databases.User;
 using Beste.GameServer.SDaysTDie;
 using Beste.GameServer.SDaysTDie.Connections;
+using Beste.GameServer.SDaysTDie.Models;
 using Beste.GameServer.SDaysTDie.Modules;
 using Beste.GameServer.SDaysTDie.Modules.Types;
 using Beste.Module;
@@ -9,7 +10,6 @@ using Beste.Rights;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Newtonsoft.Json;
-using NHibernate;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -36,7 +36,18 @@ namespace Testproject
             }
             await Task.Delay(5);
         }
-        
- 
+
+        public void GenerateGameModsXml()
+        {
+
+            GameMods gameMods = new GameMods();
+            gameMods.ConfiguredGameMods = new List<GameMod>();
+            gameMods.ConfiguredGameMods.Add(new GameMod
+            {
+                ModName = "",
+                PathToGameFiles = ""
+            });
+            gameMods.SaveToFile("config" + SEP + "gamemodstest.xml");
+        }
     }
 }

@@ -135,6 +135,7 @@ namespace Beste.GameServer.SDaysTDie.Modules
             [MethodImpl(MethodImplOptions.NoInlining)]
             set { SetPropertyValueFromStacktrace(value.ToString()); }
         }
+        [XmlIgnore]
         public string WorldGenSeed
         {
             [MethodImpl(MethodImplOptions.NoInlining)]
@@ -142,6 +143,7 @@ namespace Beste.GameServer.SDaysTDie.Modules
             [MethodImpl(MethodImplOptions.NoInlining)]
             set { SetPropertyValueFromStacktrace(value); }
         }
+        [XmlIgnore]
         public string GameName
         {
             [MethodImpl(MethodImplOptions.NoInlining)]
@@ -156,6 +158,8 @@ namespace Beste.GameServer.SDaysTDie.Modules
         public int Id { get; set; }
         [XmlIgnore]
         public string UserUuid { get; set; }
+        [XmlIgnore]
+        public string GameMod { get; set; }
         #endregion
         #region "Extracting of the Property from stacktrace"
 
@@ -208,6 +212,7 @@ namespace Beste.GameServer.SDaysTDie.Modules
             WorldGenSeed = source.WorldGenSeed;
             GameName = source.GameName;
             UserUuid =  source.UserUuid;
+            GameMod = source.GameMod;
         }
     }
 
@@ -227,6 +232,7 @@ namespace Beste.GameServer.SDaysTDie.Modules
     public class ServerSetting
     {
         public virtual string ServerConfigFilepath { get; set; }
+        public virtual string GameMod { get; set; }
         public virtual bool IsRunning { get; set; }
 
         #region "Representation of the configurable serverconfig.xml as properties"
