@@ -6,7 +6,9 @@ namespace Beste.Aws.Databases.Connector
 {
     public partial class AwsConfig : Beste.Xml.Xml
     {
-        public string RegionEndpoint = "";
+        public string RegionEndpoint { get; set; }  = "";
+        public string AccessKey { get; set; } = "";
+        public string SecretKey { get; set; } = "";
 
         public Amazon.RegionEndpoint GetRegionEndpoint()
         {

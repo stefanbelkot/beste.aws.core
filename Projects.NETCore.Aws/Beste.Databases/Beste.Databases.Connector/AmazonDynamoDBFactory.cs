@@ -1,6 +1,7 @@
 ﻿using Amazon;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DataModel;
+using Amazon.Runtime;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -17,6 +18,7 @@ namespace Beste.Aws.Databases.Connector
         private static IAmazonDynamoDB client = null;
         private static DynamoDBContext context = null;
         private static RegionEndpoint RegionEndpoint = null;
+        private static AwsConfig awsConfig = null;
 
 
         /// <summary>
@@ -30,18 +32,39 @@ namespace Beste.Aws.Databases.Connector
                 if (client == null)
                 {
                     AmazonDynamoDBConfig clientConfig = new AmazonDynamoDBConfig();
-                    if (RegionEndpoint == null)
-                        RegionEndpoint = GetRegionEndpointFromSettings();
+                    if (awsConfig == null)
+                    {
+                        awsConfig = LoadAwsConfig();
+                        RegionEndpoint = awsConfig.GetRegionEndpoint();
+                    }
                     clientConfig.RegionEndpoint = RegionEndpoint;
-                    client = new AmazonDynamoDBClient(clientConfig);
+                    if(!string.IsNullOrEmpty(awsConfig.AccessKey) &&
+                       !string.IsNullOrEmpty(awsConfig.SecretKey))
+                    {
+                        Console.WriteLine("Using Credentials from configAws.xml, RegionEndpoint=" + RegionEndpoint.ToString());
+                        BasicAWSCredentials aWSCredentials = new BasicAWSCredentials(awsConfig.AccessKey, awsConfig.SecretKey);
+                        client = new AmazonDynamoDBClient(aWSCredentials, clientConfig);
+                    }
+                    else
+                    {
+                        Console.WriteLine("Using Default Credentials for AWS, RegionEndpoint=" + RegionEndpoint.ToString());
+                        client = new AmazonDynamoDBClient(clientConfig);
+                    }
                 }
                 return client;
             }
             private set => client = value;
         }
 
-        private static RegionEndpoint GetRegionEndpointFromSettings()
+        private static AwsConfig LoadAwsConfig()
         {
+            //todo the path should be moved to a system folder and not provided with the executable
+            // e.g. 
+            //string subPath = "Beste.Core" + Path.DirectorySeparatorChar + "<theProvidedApplicationName>";
+            //string configFileName = "configAws.xml";
+            //string directoryOfTestConfigAws = System.IO.Path.Combine(localApplicationDataPath, subPath);
+            //string pathToConfigAws = System.IO.Path.Combine(localApplicationDataPath, subPath, configFileName);
+
             AwsConfig awsConfig = new AwsConfig();
             string pathToConfig = "config" + Path.DirectorySeparatorChar;
             string configFileName = "configAws.xml";
@@ -56,7 +79,7 @@ namespace Beste.Aws.Databases.Connector
                     Console.WriteLine(ex.ToString());
                 }
             }
-            return awsConfig.GetRegionEndpoint();
+            return awsConfig;
         }
 
         /// <summary>
@@ -94,6 +117,7 @@ namespace Beste.Aws.Databases.Connector
         {
             client = null;
             context = null;
+            awsConfig = null;
         }
 
         /// <summary>

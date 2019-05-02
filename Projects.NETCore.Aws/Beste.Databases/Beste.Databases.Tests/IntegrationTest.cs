@@ -15,11 +15,15 @@ namespace Beste.Databases.Tests
     {
         public static int TABLE_ID = 1;
 
+        [TestInitialize]
+        public async Task TestInitialize()
+        {
+            await InitializeDatabaseConnection();
+        }
+
         [TestMethod]
         public async Task TestDatabaseConnectionGetById()
         {
-            ActivateTestSchema();
-
             var request = new QueryRequest
             {
                 TableName = "user",
@@ -53,7 +57,6 @@ namespace Beste.Databases.Tests
         [TestMethod]
         public async Task TestDatabaseConnectionGetMaxId()
         {
-            ActivateTestSchema();
             var scanRequest = new ScanRequest
             {
                 TableName = "user",
@@ -84,7 +87,6 @@ namespace Beste.Databases.Tests
         [TestMethod]
         public async Task WriteInTestTable_User()
         {
-            ActivateTestSchema();
             User.User user = null;
             user = new User.User
             {
@@ -119,8 +121,6 @@ namespace Beste.Databases.Tests
         [TestMethod]
         public async Task WriteInTestTableFunctionalProgramming_User()
         {
-            ActivateTestSchema();
-
             User.User user = await AmazonDynamoDBFactory.ExecuteInTransactionContext(AddTestUser);
 
             async Task checkUserExists(IAmazonDynamoDB client, IDynamoDBContext context)
@@ -132,13 +132,39 @@ namespace Beste.Databases.Tests
             await AmazonDynamoDBFactory.ExecuteInTransactionContext(checkUserExists);
         }
 
-        [TestMethod]
-        public async Task GenerateConfigFileAndUseOtherAwsEndpoint()
+
+        public async Task InitializeDatabaseConnection()
         {
             AmazonDynamoDBFactory.ResetFactory();
-            AwsConfig awsConfig = new AwsConfig();
-            string pathToConfig = "config" + Path.DirectorySeparatorChar;
+
+            string localApplicationDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            string subPath = "Beste.Core" + Path.DirectorySeparatorChar + "Tests";
             string configFileName = "configAws.xml";
+            string directoryOfTestConfigAws = System.IO.Path.Combine(localApplicationDataPath, subPath);
+            string pathToTestConfigAws = System.IO.Path.Combine(localApplicationDataPath, subPath, configFileName);
+            if (!Directory.Exists(directoryOfTestConfigAws) ||
+                !File.Exists(pathToTestConfigAws))
+            {
+                AwsConfig awsConfigPattern = new AwsConfig()
+                {
+                    RegionEndpoint = "REGIONENDPOINT",
+                    AccessKey = "YOURACCESSKEY",
+                    SecretKey = "YOURSECRETKEY"
+                };
+                if (!Directory.Exists(directoryOfTestConfigAws))
+                {
+                    Directory.CreateDirectory(directoryOfTestConfigAws);
+                }
+                string pathToTestConfigAwsPattern = System.IO.Path.Combine(localApplicationDataPath, subPath, "configAws_pattern.xml");
+                awsConfigPattern.SaveToFile(pathToTestConfigAwsPattern);
+                Assert.Inconclusive("For AWS tests the to test config file must be found in: '" + pathToTestConfigAws + "'. Please create the file with valid endpoint+key+secret\n" +
+                    "A pattern was saved in: '" + pathToTestConfigAwsPattern + "'");
+            }
+            AwsConfig awsConfig = AwsConfig.LoadFromFile<AwsConfig>(pathToTestConfigAws);
+
+
+            string pathToConfig = "config" + Path.DirectorySeparatorChar;
+
             if (!Directory.Exists(pathToConfig))
             {
                 Directory.CreateDirectory(pathToConfig);
@@ -147,18 +173,9 @@ namespace Beste.Databases.Tests
             {
                 File.Delete(pathToConfig + configFileName);
             }
-            awsConfig = new AwsConfig
-            {
-                RegionEndpoint = "USEast1"
-            };
+
             awsConfig.SaveToFile(pathToConfig + configFileName);
             await WriteInTestTableFunctionalProgramming_User();
-            File.Delete(pathToConfig + configFileName);
-        }
-
-        public void ActivateTestSchema()
-        {
-            //todo access tables with e.g. _test post or pre fix
         }
 
         public async Task<User.User> AddTestUser(IAmazonDynamoDB client, IDynamoDBContext context)
@@ -179,5 +196,7 @@ namespace Beste.Databases.Tests
             await AmazonDynamoDBFactory.Context.SaveAsync(user);
             return user;
         }
+
+
     }
 }
