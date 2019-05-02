@@ -56,7 +56,8 @@ namespace Testproject
                     .Build();
                 host.Run();
             });
-            
+
+            TestHelper.InitializeDatabaseConnection();
             await TestHelper.CreateInitialUsersAndRights();
             await TestHelper.CreateInitialSettingsAndRights();
             await Task.Delay(3000);

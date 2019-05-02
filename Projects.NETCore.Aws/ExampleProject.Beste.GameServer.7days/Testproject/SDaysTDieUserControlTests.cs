@@ -40,6 +40,7 @@ namespace Testproject
                 host.Run();
             });
 
+            TestHelper.InitializeDatabaseConnection();
             await TestHelper.CreateInitialUsersAndRights();
             await TestHelper.CreateInitialSettingsAndRights();
             
