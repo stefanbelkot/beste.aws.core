@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netcoreapp2.1</TargetFramework>
     <AssemblyName>Beste.Aws.Module.User</AssemblyName>
-    <Version>0.1.4-rc</Version>
+    <Version>0.1.5-rc</Version>
     <Copyright>2019 - Beste Software</Copyright>
     <Description>Library to manage users in Beste Software modules</Description>
     <PackageReleaseNotes></PackageReleaseNotes>

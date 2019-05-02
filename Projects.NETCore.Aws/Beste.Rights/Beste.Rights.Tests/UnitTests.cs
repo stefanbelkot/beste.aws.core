@@ -17,8 +17,9 @@ namespace Beste.Rights.Tests
         public static int TABLE_ID = 1;
 
         [ClassInitialize]
-        public static async Task TestInitialize(TestContext testContext)
+        public static async Task ClassInitialize(TestContext testContext)
         {
+            InitializeDatabaseConnection();
             await AddInitialRightsToDatabase();
         }
 
@@ -165,6 +166,50 @@ namespace Beste.Rights.Tests
                 Assert.Fail();
             }
 
+        }
+
+        public static void InitializeDatabaseConnection()
+        {
+            AmazonDynamoDBFactory.ResetFactory();
+
+            string localApplicationDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            string subPath = "Beste.Core" + Path.DirectorySeparatorChar + "Tests";
+            string configFileName = "configAws.xml";
+            string directoryOfTestConfigAws = System.IO.Path.Combine(localApplicationDataPath, subPath);
+            string pathToTestConfigAws = System.IO.Path.Combine(localApplicationDataPath, subPath, configFileName);
+            if (!Directory.Exists(directoryOfTestConfigAws) ||
+                !File.Exists(pathToTestConfigAws))
+            {
+                AwsConfig awsConfigPattern = new AwsConfig()
+                {
+                    RegionEndpoint = "REGIONENDPOINT",
+                    AccessKey = "YOURACCESSKEY",
+                    SecretKey = "YOURSECRETKEY"
+                };
+                if (!Directory.Exists(directoryOfTestConfigAws))
+                {
+                    Directory.CreateDirectory(directoryOfTestConfigAws);
+                }
+                string pathToTestConfigAwsPattern = System.IO.Path.Combine(localApplicationDataPath, subPath, "configAws_pattern.xml");
+                awsConfigPattern.SaveToFile(pathToTestConfigAwsPattern);
+                Assert.Fail("For AWS tests the to test config file must be found in: '" + pathToTestConfigAws + "'. Please create the file with valid endpoint+key+secret\n" +
+                    "A pattern was saved in: '" + pathToTestConfigAwsPattern + "'");
+            }
+            AwsConfig awsConfig = AwsConfig.LoadFromFile<AwsConfig>(pathToTestConfigAws);
+
+
+            string pathToConfig = "config" + Path.DirectorySeparatorChar;
+
+            if (!Directory.Exists(pathToConfig))
+            {
+                Directory.CreateDirectory(pathToConfig);
+            }
+            if (File.Exists(pathToConfig + configFileName))
+            {
+                File.Delete(pathToConfig + configFileName);
+            }
+
+            awsConfig.SaveToFile(pathToConfig + configFileName);
         }
 
         private static async Task AddInitialRightsToDatabase()
