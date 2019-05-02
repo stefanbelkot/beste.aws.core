@@ -17,7 +17,7 @@
   </Target>
 
   <ItemGroup>
-    <PackageReference Include="Beste.Aws.Databases.Connector" Version="0.1.4-rc" />
+    <PackageReference Include="Beste.Aws.Databases.Connector" Version="0.2.2-rc" />
     <PackageReference Include="Beste.Aws.Databases.User" Version="0.1.2-rc" />
     <PackageReference Include="Beste.Core.Models" Version="0.1.1" />
     <PackageReference Include="Beste.Xml" Version="0.1.4" />

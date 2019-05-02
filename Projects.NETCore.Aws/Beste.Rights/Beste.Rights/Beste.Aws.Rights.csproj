@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Beste.Aws.Databases.Connector" Version="0.1.4-rc" />
+    <PackageReference Include="Beste.Aws.Databases.Connector" Version="0.2.2-rc" />
     <PackageReference Include="Beste.Xml" Version="0.1.4" />
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="4.6.0-preview.18571.3" />
   </ItemGroup>
