@@ -157,7 +157,7 @@ namespace Beste.Databases.Tests
                 }
                 string pathToTestConfigAwsPattern = System.IO.Path.Combine(localApplicationDataPath, subPath, "configAws_pattern.xml");
                 awsConfigPattern.SaveToFile(pathToTestConfigAwsPattern);
-                Assert.Inconclusive("For AWS tests the to test config file must be found in: '" + pathToTestConfigAws + "'. Please create the file with valid endpoint+key+secret\n" +
+                Assert.Fail("For AWS tests the to test config file must be found in: '" + pathToTestConfigAws + "'. Please create the file with valid endpoint+key+secret\n" +
                     "A pattern was saved in: '" + pathToTestConfigAwsPattern + "'");
             }
             AwsConfig awsConfig = AwsConfig.LoadFromFile<AwsConfig>(pathToTestConfigAws);
