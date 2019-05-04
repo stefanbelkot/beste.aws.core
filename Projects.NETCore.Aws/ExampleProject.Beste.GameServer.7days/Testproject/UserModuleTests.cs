@@ -1,9 +1,6 @@
-using Beste.Databases.Connector;
 using Beste.Databases.User;
 using Beste.GameServer.SDaysTDie;
 using Beste.GameServer.SDaysTDie.Connections;
-using Beste.Module;
-using Beste.Rights;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Newtonsoft.Json;
@@ -11,7 +8,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.WebSockets;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Beste.GameServer.SDaysTDie.Modules;

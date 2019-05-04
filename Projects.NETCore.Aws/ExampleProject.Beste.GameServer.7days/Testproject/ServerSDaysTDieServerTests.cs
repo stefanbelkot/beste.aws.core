@@ -24,8 +24,6 @@ namespace Testproject
     [TestClass]
     public class ServerSDaysTDieServerTests
     {
-        private static readonly char SEP = Path.DirectorySeparatorChar;
-        readonly string SDaysToDiePath = "C:" + SEP + "Program Files (x86)" + SEP + "Steam" + SEP + "steamapps" + SEP + "common" + SEP + "7 Days To Die";
         [TestInitialize]
         public async Task TestInit()
         {
