@@ -9,8 +9,9 @@ export class WebsocketProvider {
     
     private instance:Subject<MessageEvent> = null;
     private socket:WebSocket = null;
+    //private url:string = "ws://localhost:80/ws";
     private url:string = "ws://localhost:80/ws";
-    //private url:string = "wss://bestesoftware.eu:443/ws";
+    //private url:string = "wss://freelancer-belkot.eu:444/ws";
     constructor() {
     }
 

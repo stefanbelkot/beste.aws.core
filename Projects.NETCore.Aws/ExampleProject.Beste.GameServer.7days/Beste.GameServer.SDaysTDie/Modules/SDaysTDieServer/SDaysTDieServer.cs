@@ -61,10 +61,11 @@ namespace Beste.GameServer.SDaysTDie.Modules
 
             // Configure the process using the StartInfo properties.
             Process.StartInfo.FileName = Folder + SEP + "7daystodie.exe";
-
+            string logFilePath = "\"" + Folder + SEP + "7DaysToDie_Data" + SEP + "output_log_dedi" + logDateTime + ".txt \"";
             if (!File.Exists(Folder + SEP + ServerSettings.ServerConfigFilepath))
                 throw new FileNotFoundException("Config file not found at "  + Folder + SEP + ServerSettings.ServerConfigFilepath);
-            Process.StartInfo.Arguments = "-logfile 7DaysToDie_Data" + SEP + "output_log_dedi" + logDateTime + ".txt -quit -batchmode -nographics -configfile=" + ServerSettings.ServerConfigFilepath + " -dedicated";
+            //Process.StartInfo.Arguments = "-logfile 7DaysToDie_Data" + SEP + "output_log_dedi" + logDateTime + ".txt -quit -batchmode -nographics -configfile=" + ServerSettings.ServerConfigFilepath + " -dedicated";
+            Process.StartInfo.Arguments = "-logfile " + logFilePath + " -quit -batchmode -nographics -configfile=" + ServerSettings.ServerConfigFilepath + " -dedicated";
             Process.Start();
             TelnetHandler = new TelnetHandler(TelnetCredentials);
             TelnetHandler.OnTelnetReceivedHandler += TelnetHandler_OnTelnetReceivedHandler;
