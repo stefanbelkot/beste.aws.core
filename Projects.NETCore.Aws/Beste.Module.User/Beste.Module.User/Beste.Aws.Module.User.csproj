@@ -21,7 +21,7 @@
     <PackageReference Include="Beste.Aws.Databases.User" Version="0.1.2-rc" />
     <PackageReference Include="Beste.Core.Models" Version="0.1.1" />
     <PackageReference Include="Beste.Xml" Version="0.1.4" />
-    <PackageReference Include="Newtonsoft.Json" Version="12.0.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.2" />
   </ItemGroup>
 
 </Project>
